@@ -1,0 +1,12 @@
+# Data (too large for GitHub)
+data/
+output/
+
+# R artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# OS
+.DS_Store
