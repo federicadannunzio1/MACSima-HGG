@@ -31,8 +31,7 @@ default_label: Unclassified
 
 # Gating markers: logical name -> feature name in the Seurat object (Seurat
 # replaces "_" with "-": CD20-Cytoplasmic, HLA-DR, Ki-67). Step 06 stops if one
-# is missing. ORDER MATTERS: thresholds are fitted in this order and Mclust
-# uses the random number stream, so reordering changes the results.
+# is missing.
 markers:
   CD45: CD45
   CD20: CD20-Cytoplasmic
@@ -67,6 +66,7 @@ markers:
 
 thresholds:
   method: gmm2            # two-component Gaussian mixture per patient and marker
+  seed: 1                 # set before every fit (Mclust starts from a random subset of 2000 cells)
   on_fit_error: 0.90      # quantile used when the mixture cannot be fitted
   max_positive: 0.60      # above this fraction of positive cells ...
   fallback_quantile: 0.85 # ... the threshold becomes this quantile

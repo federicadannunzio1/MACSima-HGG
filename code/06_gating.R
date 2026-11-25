@@ -44,6 +44,13 @@ markers_seurat <- colnames(mfi_norm)
 
 find_gmm_threshold <- function(values, marker_name) {
   values <- values[is.finite(values)]
+  # Mclust starts from a random subset of cells: a fixed seed per fit makes every threshold
+  # reproducible and independent of the order of the fits (the global random state is restored).
+  if (exists(".Random.seed", envir = globalenv())) {
+    old_seed <- get(".Random.seed", envir = globalenv())
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  }
+  set.seed(THR$seed)
   tryCatch({
     fit <- mclust::Mclust(values, G = 2, verbose = FALSE)
     if (is.null(fit)) stop("GMM failed")
