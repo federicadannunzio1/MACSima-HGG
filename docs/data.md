@@ -30,3 +30,14 @@ Derived in the code, not in the file: `pfs_group` (`responder` if `pfs_months` â
 `PFS_CUTOFF`, else `non_responder`) and `os_group` (median split).
 
 No names, dates of birth or other identifiers: `patient_id` only.
+
+## Migration from the metadata written in the code (once)
+
+Before this layout, `constants.R` contained `CSV_FILES`, `SAMPLE_META` and `CLINICAL`.
+To write the two files from that version (only the columns above are kept):
+
+```sh
+git show <commit before the change>:code/utils/constants.R > /tmp/constants_old.R
+Rscript tools/write_metadata_tsv.R /tmp/constants_old.R data/
+```
+
