@@ -51,7 +51,7 @@ message(sprintf("Marker disponibili: %d", length(markers_available)))
 
 # ── 1. T_CD8 exhaustion score ────────────────────────────────────────────────
 # Marker di esaurimento: TIGIT, PD-1 (CD279), TIM-3, CTLA-4
-EXHAUSTION_MARKERS <- c("TIGIT", "CD279", "TIM3", "CTLA-4")
+EXHAUSTION_MARKERS <- SIGNATURES$exhaustion
 avail_exhaust <- intersect(EXHAUSTION_MARKERS, markers_available)
 message(sprintf("Exhaustion markers disponibili: %s", paste(avail_exhaust, collapse = ", ")))
 
@@ -62,8 +62,8 @@ exhaust_score <- score_by_patient(t_cd8_cells, avail_exhaust) %>%
   rename(T_CD8_exhaustion = score, n_TCD8 = n_cells)
 
 # ── 2. Mieloide M2 score (CD163 / (CD80 + CD163)) ────────────────────────────
-M1_MARKERS <- c("CD80")
-M2_MARKERS <- c("CD163", "CD206")
+M1_MARKERS <- SIGNATURES$m1
+M2_MARKERS <- SIGNATURES$m2
 avail_m1 <- intersect(M1_MARKERS, markers_available)
 avail_m2 <- intersect(M2_MARKERS, markers_available)
 
@@ -82,7 +82,7 @@ myeloid_score <- m1_score %>%
 
 # ── 3. Immunogenicità tumorale ────────────────────────────────────────────────
 # HLA-ABC = MHC-I (presentazione a T_CD8), HLA-DR = MHC-II (presentazione a T_CD4)
-IMMUNO_MARKERS <- c("HLA-ABC", "HLA-DR-DP-DQ", "HLA-DR")
+IMMUNO_MARKERS <- SIGNATURES$hla
 # Seurat può chiamarlo HLA-DR-DP-DQ o HLA-DR...
 avail_hla <- intersect(IMMUNO_MARKERS, markers_available)
 # Prendi quello disponibile
@@ -98,7 +98,7 @@ message(sprintf("HLA markers usati per immunogenicita': %s",
                 paste(avail_hla_simple, collapse = ", ")))
 
 # ── 4. Checkpoint ligand su tumore (immune evasion) ──────────────────────────
-CHECKPOINT_LIG <- c("CD274", "B7H3")
+CHECKPOINT_LIG <- SIGNATURES$checkpoint_ligand
 avail_ckpt <- intersect(CHECKPOINT_LIG, markers_available)
 message(sprintf("Checkpoint ligand markers: %s", paste(avail_ckpt, collapse = ", ")))
 
@@ -106,7 +106,7 @@ immune_evasion_score <- score_by_patient(tumor_cells, avail_ckpt) %>%
   rename(Tumor_immune_evasion = score)
 
 # ── 5. Proliferazione per compartimento ──────────────────────────────────────
-KI67_MARKER <- intersect(c("Ki-67", "Ki67", "KI-67"), markers_available)
+KI67_MARKER <- intersect(SIGNATURES$ki67, markers_available)
 
 if (length(KI67_MARKER) > 0) {
   ki67_tumor   <- score_by_patient(tumor_cells, KI67_MARKER) %>%
@@ -121,7 +121,7 @@ if (length(KI67_MARKER) > 0) {
 }
 
 # ── 6. Antigeni tumorali targetabili: NKG2D, GD2, MGMT, EZHIP ──────────────
-TUMOR_ANTIGEN_MARKERS <- c("NKG2D", "GD2", "MGMT", "EZHIP")
+TUMOR_ANTIGEN_MARKERS <- SIGNATURES$tumor_antigens
 avail_ag <- intersect(TUMOR_ANTIGEN_MARKERS, markers_available)
 message(sprintf("Tumor antigen markers: %s", paste(avail_ag, collapse = ", ")))
 

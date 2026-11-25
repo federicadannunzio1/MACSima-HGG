@@ -41,8 +41,11 @@ CLINICAL <- CLINICAL[, c("patient_id", "os_months", "pfs_months",
 stopifnot(!anyDuplicated(CLINICAL$patient_id),
           all(SAMPLE_META$patient_id %in% CLINICAL$patient_id))
 
-# PFS group: >= 6 months = "responder", < 6 months = "non_responder"
-PFS_CUTOFF <- 6  # months
+# PFS group: >= cutoff = "responder", otherwise "non_responder" (cutoff and marker signatures: config/pipeline.yaml)
+source(file.path(getwd(), "R/config.R"))
+PIPELINE   <- read_pipeline_config()
+SIGNATURES <- PIPELINE$signatures
+PFS_CUTOFF <- PIPELINE$pfs_cutoff_months  # months
 CLINICAL$pfs_group <- ifelse(CLINICAL$pfs_months >= PFS_CUTOFF, "responder", "non_responder")
 
 # Median split for OS (secondary)

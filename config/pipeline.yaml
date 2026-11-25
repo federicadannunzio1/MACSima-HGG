@@ -1,0 +1,16 @@
+# Parameters of the analysis that are not code. Read by code/utils/constants.R (R/config.R).
+# Changing a value here changes the results: re-run the pipeline from the step that uses it.
+
+# Outcome groups (steps 08 and constants.R): PFS >= cutoff -> "responder", otherwise "non_responder".
+pfs_cutoff_months: 6
+
+# Marker signatures of the patient-level scores (steps 07 and 07b). Names are Seurat feature names
+# ("_" is "-"); markers absent from the data are ignored. Score = mean of the available markers.
+signatures:
+  exhaustion:        ["TIGIT", "CD279", "TIM3", "CTLA-4"]   # T_CD8 exhaustion (CD279 = PD-1)
+  m1:                ["CD80"]                               # myeloid M1
+  m2:                ["CD163", "CD206"]                     # myeloid M2
+  hla:               ["HLA-ABC", "HLA-DR-DP-DQ", "HLA-DR"]  # tumour immunogenicity: the first two available are used
+  checkpoint_ligand: ["CD274", "B7H3"]                      # tumour immune evasion (B7H3: reagent artefact, see decision 0004)
+  ki67:              ["Ki-67", "Ki67", "KI-67"]             # proliferation; synonyms, any available
+  tumor_antigens:    ["NKG2D", "GD2", "MGMT", "EZHIP"]      # one score per marker
