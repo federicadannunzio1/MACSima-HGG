@@ -17,6 +17,7 @@
 source(file.path(getwd(), "code/utils/constants.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
+source(file.path(getwd(), "R/scores.R"))
 GATING <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
 
 library(Seurat)
@@ -44,18 +45,7 @@ mfi_df$celltype        <- seurat_obj$celltype  # annotazione manuale da clusteri
 markers_available <- colnames(mfi_norm)
 message(sprintf("Marker disponibili: %d", length(markers_available)))
 
-# Helper: media sicura (NA se nessuna cellula del subset)
-safe_mean <- function(x) if (length(x) == 0 || all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
-
-# Helper: score = media di più marker, per paziente × subset
-score_by_patient <- function(subset_df, markers) {
-  avail <- intersect(markers, colnames(subset_df))
-  if (length(avail) == 0) return(tibble(patient_id = character(), score = numeric()))
-  subset_df %>%
-    group_by(patient_id) %>%
-    summarise(score = safe_mean(rowMeans(across(all_of(avail)), na.rm = TRUE)),
-              n_cells = n(), .groups = "drop")
-}
+# (safe_mean() and score_by_patient() are in R/scores.R)
 
 # ── 1. T_CD8 exhaustion score ────────────────────────────────────────────────
 # Marker di esaurimento: TIGIT, PD-1 (CD279), TIM-3, CTLA-4

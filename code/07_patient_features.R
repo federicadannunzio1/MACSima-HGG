@@ -18,6 +18,7 @@
 source(file.path(getwd(), "code/utils/constants.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
+source(file.path(getwd(), "R/scores.R"))
 
 library(Seurat)
 library(readr)
@@ -41,17 +42,7 @@ mfi_df$celltype_gating <- seurat_obj$celltype_gating
 
 markers_available <- colnames(mfi_norm)
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-safe_mean <- function(x) if (length(x) == 0 || all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
-
-score_by_patient <- function(subset_df, markers) {
-  avail <- intersect(markers, colnames(subset_df))
-  if (length(avail) == 0) return(tibble(patient_id = character(), score = numeric()))
-  subset_df %>%
-    group_by(patient_id) %>%
-    summarise(score = safe_mean(rowMeans(across(all_of(avail)), na.rm = TRUE)),
-              n_cells = n(), .groups = "drop")
-}
+# (safe_mean() and score_by_patient() are in R/scores.R)
 
 # ── 1. Cell type composition (from gating) ────────────────────────────────────
 comp_gating <- read_tsv(file.path(TAB_DIR, "06_composition_gating.tsv"), show_col_types = FALSE)
