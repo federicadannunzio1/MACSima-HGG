@@ -1,0 +1,20 @@
+name: tests
+# Tests and syntax check of the R code. No patient data is needed or used.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - name: Install the packages the tests need
+        run: Rscript -e 'install.packages(c("yaml", "dplyr", "tibble"))'
+      - name: Tests and syntax check
+        run: Rscript tests/run_all.R
