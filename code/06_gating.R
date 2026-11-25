@@ -77,12 +77,12 @@ find_gmm_threshold <- function(values, marker_name) {
 }
 
 # Gating markers — mapped from logical name to Seurat feature name
-# All 31 markers are in the shared panel of 54
+# Seurat replaces "_" with "-" in feature names: use the Seurat spelling.
 gating_name_map <- c(
   # Immune vs non-immune
   CD45     = "CD45",
   # B cells
-  CD20     = "CD20_Cytoplasmic",
+  CD20     = "CD20-Cytoplasmic",
   # T cell lineage
   CD3      = "CD3",
   CD56     = "CD56",
@@ -98,8 +98,8 @@ gating_name_map <- c(
   CD45RA   = "CD45RA",
   CD45RO   = "CD45RO",
   # T cell activation/proliferation (metadata, not exclusive gate)
-  HLA_DR   = "HLA_DR",
-  Ki67     = "Ki_67",
+  HLA_DR   = "HLA-DR",
+  Ki67     = "Ki-67",
   # NK subtypes
   CD16     = "CD16",
   # Myeloid
@@ -120,9 +120,13 @@ gating_name_map <- c(
   CD105    = "CD105"
 )
 
-# Keep only markers present in the Seurat object
-gating_name_map <- gating_name_map[gating_name_map %in% markers_seurat]
-message(sprintf("Gating markers available: %d / %d", length(gating_name_map), 30))
+# Every gating marker must be in the Seurat object: a missing one would silently
+# empty every population gated on it.
+missing_markers <- setdiff(gating_name_map, markers_seurat)
+if (length(missing_markers) > 0) {
+  stop("Gating markers not in the Seurat object: ", paste(missing_markers, collapse = ", "))
+}
+message(sprintf("Gating markers available: %d / %d", length(gating_name_map), length(gating_name_map)))
 
 patients <- unique(mfi_df$patient_id)
 
