@@ -43,6 +43,9 @@ gating_nodes <- function(cfg) {
         label   = if (is.null(nd$label)) NA_character_ else nd$label,
         png     = if (is.null(nd$png)) NA_character_ else nd$png,
         mfi     = paste(nd$mfi, collapse = ","),
+        has_children = length(nd$children) > 0,
+        dev_diagram  = if (is.null(nd$deviation$diagram)) NA_character_ else nd$deviation$diagram,
+        dev_reason   = if (is.null(nd$deviation$reason)) NA_character_ else nd$deviation$reason,
         stringsAsFactors = FALSE
       )
       walk(nd$children, nd$id, depth + 1)
@@ -52,6 +55,21 @@ gating_nodes <- function(cfg) {
   do.call(rbind, rows)
 }
 
+# Labels given by a node and by all its descendants, e.g. every immune label:
+# gating_labels_under(cfg, "immune"). Used by steps 07/07b instead of hand-written lists.
+gating_labels_under <- function(cfg, ids) {
+  nodes <- gating_nodes(cfg)
+  miss  <- setdiff(ids, nodes$id)
+  if (length(miss)) stop("gating_labels_under: no node ", paste(miss, collapse = ", "))
+  keep <- ids
+  repeat {
+    more <- union(keep, nodes$id[nodes$parent %in% keep])
+    if (length(more) == length(keep)) break
+    keep <- more
+  }
+  unique(nodes$label[nodes$id %in% keep & !is.na(nodes$label)])
+}
+
 gate_text <- function(g) {
   if (is.null(g)) return("")
   if (isTRUE(g$rest)) return("rest")
@@ -59,6 +77,41 @@ gate_text <- function(g) {
              if (length(g$neg)) paste0(g$neg, "-"),
              if (length(g$any)) paste0("(", paste0(g$any, "+", collapse = " or "), ")"))
   paste(parts, collapse = " ")
+}
+
+# Gate path from the root to a node, e.g. "CD45+ > CD20- > CD3+ CD56-".
+gating_path <- function(nodes, id) {
+  out <- character()
+  while (id != "root") {
+    i   <- match(id, nodes$id)
+    out <- c(nodes$gate[i], out)
+    id  <- nodes$parent[i]
+  }
+  paste(out, collapse = " > ")
+}
+
+# Every difference from the reference diagram, from the YAML: node `deviation` fields,
+# `general_deviations` and `not_implemented` (written by step 06 as 06_gating_deviations.tsv).
+gating_deviations <- function(cfg) {
+  nd  <- gating_nodes(cfg)
+  dv  <- nd[!is.na(nd$dev_reason), ]
+  rows <- data.frame(
+    item           = ifelse(is.na(dv$label), dv$id, dv$label),
+    node           = dv$id,
+    diagram        = dv$dev_diagram,
+    implementation = vapply(dv$id, function(i) gating_path(nd, i), ""),
+    reason         = dv$dev_reason,
+    stringsAsFactors = FALSE
+  )
+  gen <- do.call(rbind, lapply(cfg$general_deviations, function(x) data.frame(
+    item = x$item, node = NA_character_, diagram = x$diagram, implementation = x$implementation,
+    reason = x$reason, stringsAsFactors = FALSE)))
+  ni  <- do.call(rbind, lapply(cfg$not_implemented, function(x) data.frame(
+    item = x$png, node = NA_character_, diagram = x$png, implementation = "not implemented",
+    reason = x$reason, stringsAsFactors = FALSE)))
+  out <- rbind(rows, gen, ni)
+  rownames(out) <- NULL
+  out
 }
 
 # Apply the tree. pos = named list (logical marker name -> TRUE/FALSE/NA per cell; NA = flagged,
@@ -114,6 +167,10 @@ write_gating_mermaid <- function(cfg, path) {
   }
   edges <- sprintf('  %s -->|"%s"| %s', nd$parent, esc(nd$gate), nd$id)
   ni <- vapply(cfg$not_implemented, function(x) sprintf("| %s | %s |", x$png, x$reason), "")
+  dv <- gating_deviations(cfg)
+  dv <- dv[dv$implementation != "not implemented", ]
+  cell <- function(x) gsub("|", "\\|", ifelse(is.na(x), "", x), fixed = TRUE)
+  dl <- sprintf("| %s | %s | %s | %s |", cell(dv$item), cell(dv$diagram), cell(dv$implementation), cell(dv$reason))
   lines <- c(
     "# Gating tree",
     "",
@@ -132,6 +189,14 @@ write_gating_mermaid <- function(cfg, path) {
     "| Diagram | Reason |",
     "|---|---|",
     ni,
+    "",
+    "## Deviations from the diagram",
+    "",
+    "Same rows as `06_gating_deviations.tsv` (step 06). Implementation = gates from the root (`>` = child of).",
+    "",
+    "| Item | Diagram | Implementation | Reason |",
+    "|---|---|---|---|",
+    dl,
     ""
   )
   writeLines(lines, path)

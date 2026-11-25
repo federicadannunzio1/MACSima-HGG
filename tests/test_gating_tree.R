@@ -44,18 +44,61 @@ labs <- c(cfg$default_label, unique(nodes$label[!is.na(nodes$label)]))
 check(setequal(labs, names(cfg$labels)), "labels of the tree = labels with a colour",
       c(setdiff(labs, names(cfg$labels)), setdiff(names(cfg$labels), labs)))
 
-# 4. Same labels as the hand-written tree of 06_gating.R at commit 432d1c3, on synthetic
-#    cells (random positivity with 5% NA, and a case with CD45 NA in > 30% of cells).
-fx  <- read.delim("tests/fixtures/gating_expected_432d1c3.tsv", check.names = FALSE)
-ok  <- TRUE; detail <- character()
-for (cs in unique(fx$case)) {
-  d   <- fx[fx$case == cs, ]
-  pos <- lapply(setNames(names(cfg$markers), names(cfg$markers)), function(m) as.logical(d[[m]]))
-  got <- suppressMessages(apply_gating_tree(cfg, pos, nrow(d)))
-  nd  <- sum(got != d$expected)
-  if (nd > 0) { ok <- FALSE; detail <- c(detail, sprintf("%s: %d of %d cells differ", cs, nd, nrow(d))) }
+# 4. Expected labels of hand-written cell profiles (tests/fixtures/gating_cases.tsv: the
+#    markers listed are positive, all the others negative), read from the diagram.
+cases <- read.delim("tests/fixtures/gating_cases.tsv", colClasses = "character")
+pos <- lapply(setNames(names(cfg$markers), names(cfg$markers)), function(m)
+  vapply(strsplit(cases$positive, ","), function(p) m %in% p, TRUE))
+got <- suppressMessages(apply_gating_tree(cfg, pos, nrow(cases)))
+bad <- which(got != cases$expected)
+check(length(bad) == 0, sprintf("expected labels of %d cell profiles", nrow(cases)),
+      sprintf("%s: got %s, expected %s", cases$case[bad], got[bad], cases$expected[bad]))
+
+# 4b. Every difference from the diagram has a `deviation` (so 06_gating_deviations.tsv is complete).
+#     Node with `png`: its gate, together with the gates of the nodes without `png` between it and
+#     its nearest ancestor with `png`, must equal the diagram's gate (fixture column `gate`) and
+#     that ancestor must be the diagram's parent; otherwise the node or one of those nodes needs a
+#     `deviation`. Node without `png` that gives a label or ends a branch, and node with `png`
+#     that gives a label to cells of no child: own `deviation`.
+tokens <- function(id) {
+  i <- match(id, nodes$id); g <- nodes$gate[i]
+  if (g == "rest") return("rest")
+  gsub("[()]", "", unlist(strsplit(gsub(" or ", "|", g), " ")))
 }
-check(ok, "labels identical to 06_gating.R of 432d1c3 (synthetic cells)", detail)
+png_anc <- function(id) {                    # nearest ancestor with png, and the nodes in between
+  between <- character(); p <- nodes$parent[match(id, nodes$id)]
+  while (p != "root" && is.na(nodes$png[match(p, nodes$id)])) { between <- c(between, p); p <- nodes$parent[match(p, nodes$id)] }
+  list(anc = if (p == "root") "root" else nodes$png[match(p, nodes$id)], between = between)
+}
+has_dev <- function(ids) any(!is.na(nodes$dev_reason[match(ids, nodes$id)]))
+missing <- character()
+for (k in seq_len(nrow(nodes))) {
+  id <- nodes$id[k]
+  if (!is.na(nodes$png[k])) {
+    a   <- png_anc(id)
+    yt  <- sort(unique(unlist(lapply(c(id, a$between), tokens))))
+    ref <- png[png$id == nodes$png[k], ]
+    dt  <- sort(strsplit(ref$gate, " ")[[1]])
+    if ((!identical(yt, dt) || a$anc != ref$parent) && !has_dev(c(id, a$between)))
+      missing <- c(missing, sprintf("%s: [%s] vs diagram [%s] under %s", id, paste(yt, collapse = " "), paste(dt, collapse = " "), ref$parent))
+    if (!is.na(nodes$label[k]) && nodes$has_children[k] && !has_dev(id))
+      missing <- c(missing, sprintf("%s: label %s for cells of no child", id, nodes$label[k]))
+  } else if ((!is.na(nodes$label[k]) || !nodes$has_children[k]) && !has_dev(id)) {
+    missing <- c(missing, sprintf("%s: not in the diagram", id))
+  }
+}
+check(length(missing) == 0, "every difference from the diagram has a deviation", missing)
+dv <- gating_deviations(cfg)
+check(nrow(dv) == sum(!is.na(nodes$dev_reason)) + length(cfg$general_deviations) + length(cfg$not_implemented) &&
+        !anyNA(dv$reason) && all(nzchar(dv$reason)), "06_gating_deviations.tsv: one row per deviation, all with a reason")
+
+# 4c. Label groups used by steps 07/07b.
+imm <- gating_labels_under(cfg, "immune")
+check(all(c("B_cell", "NKT", "T_CD8_exhausted", "Myeloid_other") %in% imm) && !any(c("Tumor", "Endothelial") %in% imm),
+      "gating_labels_under: immune labels")
+
+# 4d. Threshold method.
+check(cfg$thresholds$method %in% c("gmm2", "negpop"), "thresholds$method is gmm2 or negpop")
 
 # 5. docs/gating_tree.md is up to date with the YAML.
 tmp <- tempfile(fileext = ".md")

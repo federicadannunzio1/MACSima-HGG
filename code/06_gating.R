@@ -40,7 +40,10 @@ mfi_df$roi_id     <- seurat_obj$roi_id
 
 markers_seurat <- colnames(mfi_norm)
 
-# ── 1. GMM THRESHOLDS PER PATIENT PER MARKER ─────────────────────────────────
+# ── 1. THRESHOLDS PER MARKER (config/gating_tree.yaml `thresholds`) ──────────
+# gmm2:   per patient, two-component Gaussian mixture (fallbacks below).
+# negpop: per ROI, negative population: mode of the KDE (fixed bandwidth) + k x MAD of
+#         the values below the mode (decision 2 of 19/11).
 
 find_gmm_threshold <- function(values, marker_name) {
   values <- values[is.finite(values)]
@@ -89,34 +92,61 @@ if (length(missing_markers) > 0) {
 }
 message(sprintf("Gating markers available: %d / %d", length(gating_name_map), length(gating_name_map)))
 
-patients <- unique(mfi_df$patient_id)
+# Negative population: highest peak of a Gaussian KDE with a FIXED bandwidth (all cells of the
+# ROI, no subsample: deterministic), + k x MAD of the values below it (MAD floor min_mad).
+find_negpop_threshold <- function(values, np = THR$negpop) {
+  values <- values[is.finite(values)]
+  rng    <- quantile(values, unlist(np$range_quantiles), names = FALSE)
+  de     <- density(values, bw = np$bandwidth, n = np$grid, from = rng[1], to = rng[2])
+  mode   <- de$x[which.max(de$y)]
+  low    <- values[values <= mode]
+  mad    <- if (length(low) > 10) 1.4826 * median(mode - low) else NA
+  list(threshold = mode + np$k_mad * max(mad, np$min_mad, na.rm = TRUE), method = "negpop")
+}
 
-message("Computing per-patient GMM thresholds...")
-thresholds_per_patient <- list()
-for (pat in patients) {
-  thresholds_per_patient[[pat]] <- list()
-  cells_pat <- mfi_df$patient_id == pat
+if (!THR$method %in% c("gmm2", "negpop")) stop("thresholds$method must be gmm2 or negpop: ", THR$method)
+# Cells sharing a threshold: patient (gmm2) or ROI (negpop)
+thr_by     <- if (THR$method == "negpop") "sample_id" else "patient_id"
+thr_group  <- mfi_df[[thr_by]]
+groups     <- unique(thr_group)
+group_patient <- mfi_df$patient_id[match(groups, thr_group)]
+
+message(sprintf("Computing thresholds: %s per %s...", THR$method, thr_by))
+thresholds <- list()
+for (grp in groups) {
+  thresholds[[grp]] <- list()
+  cells_grp <- thr_group == grp
   for (logic_name in names(gating_name_map)) {
     seurat_name <- gating_name_map[[logic_name]]
-    vals        <- mfi_df[[seurat_name]][cells_pat]
-    result      <- find_gmm_threshold(vals, seurat_name)
-
-    pct_pos <- mean(vals > result$threshold, na.rm = TRUE)
-    if (pct_pos > THR$max_positive) {
-      result$threshold <- quantile(vals, THR$fallback_quantile, na.rm = TRUE)
-      result$method    <- "p85_fallback"
+    vals        <- mfi_df[[seurat_name]][cells_grp]
+    if (THR$method == "negpop") {
+      result <- find_negpop_threshold(vals)
+    } else {
+      result  <- find_gmm_threshold(vals, seurat_name)
+      pct_pos <- mean(vals > result$threshold, na.rm = TRUE)
+      if (pct_pos > THR$max_positive) {
+        result$threshold <- quantile(vals, THR$fallback_quantile, na.rm = TRUE)
+        result$method    <- "p85_fallback"
+      }
     }
-    thresholds_per_patient[[pat]][[logic_name]] <- result
+    result$threshold <- unname(result$threshold)
+    thresholds[[grp]][[logic_name]] <- result
   }
 }
 
+thresholds_df <- do.call(rbind, lapply(groups, function(g) data.frame(
+  group_col = thr_by, group = g, marker = names(thresholds[[g]]),
+  threshold = vapply(thresholds[[g]], `[[`, 0, "threshold"),
+  method    = vapply(thresholds[[g]], `[[`, "", "method"), stringsAsFactors = FALSE)))
+write_tsv(thresholds_df, file.path(TAB_DIR, "06_gating_thresholds.tsv"))
+
 # Report thresholds
-message("\n  Marker       | ", paste(sprintf("%-10s", patients), collapse=" | "), " | method")
+message("\n  Marker       | ", paste(sprintf("%-10s", groups), collapse=" | "), " | method")
 for (logic_name in names(gating_name_map)) {
-  thresh_vals <- sapply(patients, function(p)
-    sprintf("%.2f", thresholds_per_patient[[p]][[logic_name]]$threshold))
-  methods <- sapply(patients, function(p)
-    thresholds_per_patient[[p]][[logic_name]]$method)
+  thresh_vals <- sapply(groups, function(p)
+    sprintf("%.2f", thresholds[[p]][[logic_name]]$threshold))
+  methods <- sapply(groups, function(p)
+    thresholds[[p]][[logic_name]]$method)
   method_str <- ifelse(all(methods == "GMM"), "GMM", paste(unique(methods), collapse="/"))
   message(sprintf("  %-12s | %s | %s",
                   logic_name,
@@ -130,9 +160,8 @@ plot_threshold <- function(logic_name) {
   df_plot <- data.frame(value = mfi_df[[seurat_name]], patient_id = mfi_df$patient_id)
 
   thresh_df <- data.frame(
-    patient_id = patients,
-    threshold  = sapply(patients, function(p)
-      thresholds_per_patient[[p]][[logic_name]]$threshold)
+    patient_id = group_patient,
+    threshold  = sapply(groups, function(p) thresholds[[p]][[logic_name]]$threshold)
   )
 
   ggplot(df_plot, aes(x = value, color = patient_id)) +
@@ -158,7 +187,7 @@ flag_cols <- grep("^flag_", colnames(seurat_obj@meta.data), value = TRUE)
 flag_mat  <- as.data.frame(seurat_obj@meta.data[, flag_cols, drop = FALSE])
 
 # ── 4. GATING TREE ───────────────────────────────────────────────────────────
-# Positivity per gating marker (per-patient thresholds); QC-flagged = NA.
+# Positivity per gating marker (thresholds of section 1); QC-flagged = NA.
 compute_positivity <- function() {
   n   <- nrow(mfi_df)
   pos <- list()
@@ -167,10 +196,9 @@ compute_positivity <- function() {
     vals   <- mfi_df[[sname]]
     result <- rep(NA, n)
 
-    for (pat in patients) {
-      idx    <- mfi_df$patient_id == pat
-      thresh <- thresholds_per_patient[[pat]][[lname]]$threshold
-      result[idx] <- vals[idx] > thresh
+    for (grp in groups) {
+      idx    <- thr_group == grp
+      result[idx] <- vals[idx] > thresholds[[grp]][[lname]]$threshold
     }
 
     # Mask QC-flagged marker/sample combinations
@@ -185,21 +213,19 @@ compute_positivity <- function() {
 }
 
 message("Applying gating tree...")
-mfi_df$celltype_gating <- apply_gating_tree(GATING, compute_positivity(), nrow(mfi_df))
+positivity <- compute_positivity()
+mfi_df$celltype_gating <- apply_gating_tree(GATING, positivity, nrow(mfi_df))
 
 # ── 4b. T CELL FUNCTIONAL ANNOTATIONS (metadata, not exclusive types) ────────
 # config/gating_tree.yaml `annotations`: HLA-DR+ = activated, Ki-67+ = proliferating.
 # These overlay on differentiation states and are stored as separate columns.
+# Same positivity as the tree: NA where the marker is QC-flagged (not measurable in that ROI).
 message("Adding T cell functional annotations...")
 
 for (ann in GATING$annotations) {
   is_target <- grepl(ann$labels_regex, mfi_df$celltype_gating)
   col       <- rep(NA, nrow(mfi_df))
-  for (pat in patients) {
-    idx_pat  <- mfi_df$patient_id == pat & is_target
-    thresh   <- thresholds_per_patient[[pat]][[ann$marker]]$threshold
-    col[idx_pat] <- mfi_df[[gating_name_map[[ann$marker]]]][idx_pat] > thresh
-  }
+  col[is_target] <- positivity[[ann$marker]][is_target]
   mfi_df[[ann$column]] <- col
 }
 
@@ -326,8 +352,7 @@ saveRDS(seurat_obj, file.path(RDS_DIR, "06_seurat_gated.rds"))
 saveRDS(mfi_df,     file.path(RDS_DIR, "06_mfi_gated.rds"))
 
 # ── 9. GATING DEVIATIONS TABLE ──────────────────────────────────────────────
-# Where the implementation differs from the reference diagram (config/gating_tree.yaml)
-deviations <- do.call(rbind, lapply(GATING$deviations, as.data.frame, stringsAsFactors = FALSE))
-write_tsv(deviations, file.path(TAB_DIR, "06_gating_deviations.tsv"))
+# Every difference from the reference diagram, generated from config/gating_tree.yaml
+write_tsv(gating_deviations(GATING), file.path(TAB_DIR, "06_gating_deviations.tsv"))
 
 message("\nStep 6 complete.")

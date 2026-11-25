@@ -17,6 +17,7 @@
 
 source(file.path(getwd(), "code/utils/constants.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
+source(file.path(getwd(), "code/utils/gating_tree.R"))
 
 library(Seurat)
 library(readr)
@@ -65,16 +66,20 @@ feat_composition <- comp_gating %>%
 
 # 2a. T_CD8 exhaustion
 EXHAUST_MARKERS <- intersect(c("TIGIT", "CD279", "TIM3", "CTLA-4"), markers_available)
-t_cd8_cells <- mfi_df %>% filter(celltype_gating %in% c("T_CD8_exhausted", "T_CD8_naive",
-                                                          "T_CD8_CM", "T_CD8_EM",
-                                                          "T_CD8_TEMRA", "T_CD8_other"))
+# Label groups from the gating tree (config/gating_tree.yaml), not hand-written lists
+GATING    <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
+cd8_ct    <- gating_labels_under(GATING, "T_CD8")
+myeloid_ct <- setdiff(gating_labels_under(GATING, "myeloid"), gating_labels_under(GATING, "Neutrophil"))
+immune_ct <- gating_labels_under(GATING, "immune")
+stromal_ct <- setdiff(gating_labels_under(GATING, "CD31neg_CD34neg"), c("Tumor", "Unclassified_nonimmune"))
+
+t_cd8_cells <- mfi_df %>% filter(celltype_gating %in% cd8_ct)
 exhaust_score <- score_by_patient(t_cd8_cells, EXHAUST_MARKERS) %>%
   rename(T_CD8_exhaustion = score, n_TCD8 = n_cells)
 
 # 2b. Myeloid M2/M1
 myeloid_cells <- mfi_df %>%
-  filter(celltype_gating %in% c("Microglia", "TAM_M1", "TAM_M2", "Macrophage_other",
-                                  "Monocyte", "Other_immune"))
+  filter(celltype_gating %in% myeloid_ct)
 m1_score <- score_by_patient(myeloid_cells, intersect(c("CD80"), markers_available)) %>%
   rename(M1_score = score, n_myeloid = n_cells)
 m2_score <- score_by_patient(myeloid_cells, intersect(c("CD163", "CD206"), markers_available)) %>%
@@ -119,15 +124,6 @@ if (length(tumor_antigen_scores) > 0) {
 }
 
 # 2g. Immune infiltration
-immune_ct <- c("T_CD4_naive", "T_CD4_CM", "T_CD4_EM", "T_CD4_TEMRA", "T_CD4_exhausted", "T_CD4_other",
-               "T_reg",
-               "T_CD8_naive", "T_CD8_CM", "T_CD8_EM", "T_CD8_TEMRA", "T_CD8_exhausted", "T_CD8_other",
-               "T_other",
-               "B_cell", "NKT",
-               "NK_effector", "NK_immature",
-               "Neutrophil", "Microglia", "Monocyte",
-               "TAM_M1", "TAM_M2", "Macrophage_other",
-               "Other_immune")
 immune_fraction <- mfi_df %>%
   mutate(is_immune = celltype_gating %in% immune_ct) %>%
   group_by(patient_id) %>%
@@ -155,7 +151,7 @@ immune_summary <- comp_gating %>%
     celltype_gating %in% immune_ct ~ "Immune",
     celltype_gating == "Tumor"       ~ "Tumor",
     celltype_gating == "Endothelial" ~ "Endothelial",
-    celltype_gating %in% c("Stromal", "Mesenchymal", "Fibroblast") ~ "Stromal",
+    celltype_gating %in% stromal_ct  ~ "Stromal",
     TRUE                              ~ "Unclassified"
   )) %>%
   group_by(patient_id, compartment) %>%

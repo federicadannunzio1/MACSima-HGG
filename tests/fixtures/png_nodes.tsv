@@ -1,46 +1,46 @@
-id	parent	diagram_text	mfi
-immune_cells	root	CD45+ -> immune cells	
-B_cells	immune_cells	CD20+ -> B cells	
-T_cells	immune_cells	CD3+ -> T cells	GD2
-CD4_T_cells	T_cells	CD4+ -> CD4+ T cells	
-naive_CD4	CD4_T_cells	CCR7+ -> CD45RA+ -> naive CD4+	
-CM_CD4	CD4_T_cells	CCR7+ -> CD45RO+ -> CM CD4+	
-EM_CD4	CD4_T_cells	CCR7- -> CD45RO+ -> EM CD4+	
-TEMRA_CD4	CD4_T_cells	CCR7- -> CD45RA+ -> TEMRA CD4+	
-Tregs	CD4_T_cells	FOXP3+ -> Tregs	
-activated_CD4	CD4_T_cells	activated -> HLA-DR+ -> activated CD4+	
-proliferating_CD4	CD4_T_cells	activated -> Ki-67+ -> CD4+ in proliferation	
-activated_proliferating_CD4	CD4_T_cells	activated -> HLA-DR+, Ki-67+ -> activated CD4+ in proliferation	
-exhausted_CD4	CD4_T_cells	PD1+, TIM3+, CD223 -> exhausted CD4+	
-CD8_T_cells	T_cells	CD8+ -> CD8+ T cells	
-naive_CD8	CD8_T_cells	CCR7+ -> CD45RA+ -> naive CD8+	
-CM_CD8	CD8_T_cells	CCR7+ -> CD45RO+ -> CM CD8+	
-EM_CD8	CD8_T_cells	CCR7- -> CD45RO+ -> EM CD8+	
-TEMRA_CD8	CD8_T_cells	CCR7- -> CD45RA+ -> TEMRA CD8+	
-activated_CD8	CD8_T_cells	activated -> HLA-DR+ -> activated CD8+	
-proliferating_CD8	CD8_T_cells	activated -> Ki-67+ -> CD8+ in proliferation	
-activated_proliferating_CD8	CD8_T_cells	activated -> HLA-DR+, Ki-67+ -> activated CD8+ in proliferation	
-exhausted_CD8	CD8_T_cells	PD1+, TIM3+, CD223 -> exhausted CD8+	
-CD20neg	immune_cells	CD20-	
-NK_cells	CD20neg	CD56+ -> NK cells	NKG2D,TIGIT
-immature_NK	NK_cells	CD16- -> immature NK cells	
-effector_NK	NK_cells	CD16+ -> effector NK cells	
-NKT_cells	CD20neg	CD3+/CD56+ -> NKT cells	NKG2D
-myeloids	CD20neg	CD3-/CD56- -> myeloids	GD2
-neutrophils	myeloids	CD15+ -> neutrophils	
-normal_microglia	myeloids	CD14-/CD15- -> Iba1+ -> normal microglia	TMEM119,P2Y12,Arginase_1
-monocytes	myeloids	CD14+ -> Iba1-/CD68- -> monocytes	
-macrophages	myeloids	CD14+ -> Iba1+/CD68+ -> macrophages	
-M1	macrophages	CD163-/CD206- -> M1	
-M2_TAM	macrophages	CD163+/CD206+ -> M2 (TAM)	CD209,Arginase_1
-CD45neg	root	CD45-	
-endothelial_cells	CD45neg	CD31+/CD34+ -> endothelial cells	
-CD31neg_CD34neg	CD45neg	CD31-/CD34-	
-podoplanin_vimentin_pos	CD31neg_CD34neg	podoplanin+/vimentin+	
-tumor_cells	podoplanin_vimentin_pos	GFAP+/OLIG2+ -> tumor cells	B7H3,GD2,MGMT,EZHIP,Ki_67,p53,HLA_DR,HLA_ABC,CIITA
-mesenchymal_cells	podoplanin_vimentin_pos	GFAP-/OLIG2- -> CD105+ -> mesenchymal cells	
-fibroblasts	podoplanin_vimentin_pos	GFAP-/OLIG2- -> CD105- -> fibroblasts	
-tumor_microglia	fibroblasts	CD105- -> Iba1+ / CD68+ -> tumor microglia	TMEM119,P2Y12,Arginase_1
-podoplanin_vimentin_neg	CD31neg_CD34neg	podoplanin-/vimentin-	
-oligodendrocytes	podoplanin_vimentin_neg	GFAP-/OLIG2+ -> oligodendrocytes	
-astrocytes	podoplanin_vimentin_neg	GFAP+/OLIG2- -> astrocytes	HLA_DR
+id	parent	diagram_text	mfi	gate
+immune_cells	root	CD45+ -> immune cells		CD45+
+B_cells	immune_cells	CD20+ -> B cells		CD20+
+T_cells	immune_cells	CD3+ -> T cells	GD2	CD3+
+CD4_T_cells	T_cells	CD4+ -> CD4+ T cells		CD4+
+naive_CD4	CD4_T_cells	CCR7+ -> CD45RA+ -> naive CD4+		CCR7+ CD45RA+
+CM_CD4	CD4_T_cells	CCR7+ -> CD45RO+ -> CM CD4+		CCR7+ CD45RO+
+EM_CD4	CD4_T_cells	CCR7- -> CD45RO+ -> EM CD4+		CCR7- CD45RO+
+TEMRA_CD4	CD4_T_cells	CCR7- -> CD45RA+ -> TEMRA CD4+		CCR7- CD45RA+
+Tregs	CD4_T_cells	FOXP3+ -> Tregs		FoxP3+
+activated_CD4	CD4_T_cells	activated -> HLA-DR+ -> activated CD4+		
+proliferating_CD4	CD4_T_cells	activated -> Ki-67+ -> CD4+ in proliferation		
+activated_proliferating_CD4	CD4_T_cells	activated -> HLA-DR+, Ki-67+ -> activated CD4+ in proliferation		
+exhausted_CD4	CD4_T_cells	PD1+, TIM3+, CD223 -> exhausted CD4+		PD1+ TIM3+ LAG3+
+CD8_T_cells	T_cells	CD8+ -> CD8+ T cells		CD8a+
+naive_CD8	CD8_T_cells	CCR7+ -> CD45RA+ -> naive CD8+		CCR7+ CD45RA+
+CM_CD8	CD8_T_cells	CCR7+ -> CD45RO+ -> CM CD8+		CCR7+ CD45RO+
+EM_CD8	CD8_T_cells	CCR7- -> CD45RO+ -> EM CD8+		CCR7- CD45RO+
+TEMRA_CD8	CD8_T_cells	CCR7- -> CD45RA+ -> TEMRA CD8+		CCR7- CD45RA+
+activated_CD8	CD8_T_cells	activated -> HLA-DR+ -> activated CD8+		
+proliferating_CD8	CD8_T_cells	activated -> Ki-67+ -> CD8+ in proliferation		
+activated_proliferating_CD8	CD8_T_cells	activated -> HLA-DR+, Ki-67+ -> activated CD8+ in proliferation		
+exhausted_CD8	CD8_T_cells	PD1+, TIM3+, CD223 -> exhausted CD8+		PD1+ TIM3+ LAG3+
+CD20neg	immune_cells	CD20-		CD20-
+NK_cells	CD20neg	CD56+ -> NK cells	NKG2D,TIGIT	CD56+
+immature_NK	NK_cells	CD16- -> immature NK cells		CD16-
+effector_NK	NK_cells	CD16+ -> effector NK cells		CD16+
+NKT_cells	CD20neg	CD3+/CD56+ -> NKT cells	NKG2D	CD3+ CD56+
+myeloids	CD20neg	CD3-/CD56- -> myeloids	GD2	CD3- CD56-
+neutrophils	myeloids	CD15+ -> neutrophils		CD15+
+normal_microglia	myeloids	CD14-/CD15- -> Iba1+ -> normal microglia	TMEM119,P2Y12,Arginase_1	CD14- CD15- Iba1+
+monocytes	myeloids	CD14+ -> Iba1-/CD68- -> monocytes		CD14+ Iba1- CD68-
+macrophages	myeloids	CD14+ -> Iba1+/CD68+ -> macrophages		CD14+ Iba1+ CD68+
+M1	macrophages	CD163-/CD206- -> M1		CD163- CD206-
+M2_TAM	macrophages	CD163+/CD206+ -> M2 (TAM)	CD209,Arginase_1	CD163+ CD206+
+CD45neg	root	CD45-		CD45-
+endothelial_cells	CD45neg	CD31+/CD34+ -> endothelial cells		CD31+ CD34+
+CD31neg_CD34neg	CD45neg	CD31-/CD34-		CD31- CD34-
+podoplanin_vimentin_pos	CD31neg_CD34neg	podoplanin+/vimentin+		Podoplanin+ Vimentin+
+tumor_cells	podoplanin_vimentin_pos	GFAP+/OLIG2+ -> tumor cells	B7H3,GD2,MGMT,EZHIP,Ki_67,p53,HLA_DR,HLA_ABC,CIITA	GFAP+ OLIG2+
+mesenchymal_cells	podoplanin_vimentin_pos	GFAP-/OLIG2- -> CD105+ -> mesenchymal cells		GFAP- OLIG2- CD105+
+fibroblasts	podoplanin_vimentin_pos	GFAP-/OLIG2- -> CD105- -> fibroblasts		GFAP- OLIG2- CD105-
+tumor_microglia	fibroblasts	CD105- -> Iba1+ / CD68+ -> tumor microglia	TMEM119,P2Y12,Arginase_1	Iba1+ CD68+
+podoplanin_vimentin_neg	CD31neg_CD34neg	podoplanin-/vimentin-		Podoplanin- Vimentin-
+oligodendrocytes	podoplanin_vimentin_neg	GFAP-/OLIG2+ -> oligodendrocytes		GFAP- OLIG2+
+astrocytes	podoplanin_vimentin_neg	GFAP+/OLIG2- -> astrocytes	HLA_DR	GFAP+ OLIG2-
