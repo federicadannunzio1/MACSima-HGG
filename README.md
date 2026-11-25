@@ -24,7 +24,8 @@ is in [`example/`](example/): it shows the format and contains no real patient d
 ## Requirements
 
 R ≥ 4.3 with Seurat 5, harmony, mclust, tidyverse, pheatmap, clustree, patchwork.
-Exact versions will be pinned with `renv` (see [CONTRIBUTING](CONTRIBUTING.md)).
+Reference versions (R 4.4.2, Seurat 5.3.1, harmony 1.2.4, …) and how to pin them with `renv`:
+[docs/environment.md](docs/environment.md).
 
 ## How to run
 
