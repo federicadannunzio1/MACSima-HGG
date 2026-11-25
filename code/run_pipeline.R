@@ -4,7 +4,9 @@
 #   Rscript code/run_pipeline.R
 # =============================================================================
 
-setwd("/Users/federicadannunzio/Documents/projects/collaborations/IgnazioCaruana/HGG")
+# Must be run from the project root (folder that contains code/)
+if (!file.exists("code/utils/constants.R")) stop("Run from the project root: Rscript code/run_pipeline.R")
+set.seed(42)
 
 steps <- c(
   "code/00_harmonize_columns.R",
@@ -25,6 +27,9 @@ for (step in steps) {
   message(strrep("=", 60))
   source(step, local = new.env(parent = globalenv()))
 }
+
+source("code/utils/constants.R")
+writeLines(capture.output(sessionInfo()), file.path(OUT_DIR, "sessionInfo.txt"))
 
 message("\n", strrep("=", 60))
 message("PIPELINE COMPLETE")

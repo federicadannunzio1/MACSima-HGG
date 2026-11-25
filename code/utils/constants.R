@@ -4,7 +4,9 @@
 # =============================================================================
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR  <- "/Users/federicadannunzio/Documents/projects/collaborations/IgnazioCaruana/HGG"
+# Project root (data/, output/): set HGG_BASE_DIR to run on another machine
+BASE_DIR  <- Sys.getenv("HGG_BASE_DIR",
+                        unset = "/Users/federicadannunzio/Documents/projects/collaborations/IgnazioCaruana/HGG")
 DATA_DIR  <- file.path(BASE_DIR, "data")
 OUT_DIR   <- file.path(BASE_DIR, "output")
 FIG_DIR   <- file.path(OUT_DIR, "figures")
