@@ -1,0 +1,19 @@
+# Data (patient data, too large for GitHub)
+data/
+output/
+
+# Info (may contain patient-identifiable data in PDFs/Excel)
+info/
+
+# R artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# OS
+.DS_Store
+.claude/
+
+# Trash
+trash/
