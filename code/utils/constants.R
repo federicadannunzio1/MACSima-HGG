@@ -4,107 +4,44 @@
 # =============================================================================
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-# Project root (data/, output/): set HGG_BASE_DIR to run on another machine
-BASE_DIR  <- Sys.getenv("HGG_BASE_DIR",
-                        unset = "/Users/federicadannunzio/Documents/projects/collaborations/IgnazioCaruana/HGG")
+# Project root (contains data/ and output/): HGG_BASE_DIR if set, otherwise the
+# working directory (run the pipeline from the project root).
+BASE_DIR  <- Sys.getenv("HGG_BASE_DIR", unset = getwd())
 DATA_DIR  <- file.path(BASE_DIR, "data")
 OUT_DIR   <- file.path(BASE_DIR, "output")
 FIG_DIR   <- file.path(OUT_DIR, "figures")
 RDS_DIR   <- file.path(OUT_DIR, "data")
 TAB_DIR   <- file.path(OUT_DIR, "tables")
 
-# ── CSV file paths (none = raw MFI, no normalization) ─────────────────────────
-# sample_id naming: N<year>_<case>_R<roi>
-# NOTE: file names from MACSima are inconsistent (spaces, "Norm", etc.)
-#       Each path is verified against the actual file on disk.
-CSV_FILES <- list(
-  # --- N17_135 — 2 ROIs ---
-  N17_135_R1 = file.path(DATA_DIR, "HGG N17 135 /ROI 1/N17 135 ROI 1 none.csv"),
-  N17_135_R2 = file.path(DATA_DIR, "HGG N17 135 /ROI 2/N 17 135 ROI 2 none.csv"),
+# ── Sample and clinical metadata (data/, not versioned) ──────────────────────
+# Schema: docs/data.md; synthetic example: example/. Never put names or other
+# identifiers in these files: patient_id only.
+read_metadata <- function(file, numeric_cols = character()) {
+  path <- file.path(DATA_DIR, file)
+  if (!file.exists(path)) {
+    stop("Missing ", path, ": see docs/data.md (format) and example/ (synthetic example)")
+  }
+  df <- read.delim(path, colClasses = "character", check.names = FALSE)
+  for (col in numeric_cols) df[[col]] <- as.numeric(df[[col]])
+  df
+}
 
-  # --- N21_838 — 3 ROIs ---
-  N21_838_R1 = file.path(DATA_DIR, "HGG N21 838/ROI 1/Normalization HGG 21 838 ROI 1 none.csv"),
-  N21_838_R2 = file.path(DATA_DIR, "HGG N21 838/ROI 2/HGG N21 838 ROI 2 Norm none.csv"),
-  N21_838_R3 = file.path(DATA_DIR, "HGG N21 838/ROI 3/HGG N21 838 ROI 3 Norm none.csv"),
+# One row per ROI: sample_id (N<year>_<case>_R<roi>), patient_id, roi_id, csv_file.
+# csv_file = instrument export ("none" = raw MFI), relative to data/.
+SAMPLE_META_FILE <- read_metadata("sample_metadata.tsv")
+stopifnot(!anyDuplicated(SAMPLE_META_FILE$sample_id))
+CSV_FILES <- setNames(as.list(file.path(DATA_DIR, SAMPLE_META_FILE$csv_file)),
+                      SAMPLE_META_FILE$sample_id)
+SAMPLE_META <- SAMPLE_META_FILE[, c("sample_id", "patient_id", "roi_id")]
 
-  # --- N21_898 — 1 ROI ---
-  N21_898_R1 = file.path(DATA_DIR, "HGG N21 898 1-1-3/ROI 1/N21 898 ROI 1 none.csv"),
+# One row per patient: OS and PFS in months from surgery, MGMT, histology, cohort.
+CLINICAL <- read_metadata("clinical.tsv", numeric_cols = c("os_months", "pfs_months"))
+CLINICAL <- CLINICAL[, c("patient_id", "os_months", "pfs_months",
+                         "mgmt_status", "histology", "cohort")]
+stopifnot(!anyDuplicated(CLINICAL$patient_id),
+          all(SAMPLE_META$patient_id %in% CLINICAL$patient_id))
 
-  # --- N22_170 — 3 ROIs ---
-  N22_170_R1 = file.path(DATA_DIR, "HGG N22 170/ROI 1/HGG N22 170 ROI 1 none.csv"),
-  N22_170_R2 = file.path(DATA_DIR, "HGG N22 170/ROI 2/HGG N22 170 ROI 2 none.csv"),
-  N22_170_R3 = file.path(DATA_DIR, "HGG N22 170/ROI 3/HGG N22 170 ROI 3 none.csv"),
-
-  # --- N22_1043 — 1 ROI ---
-  N22_1043_R1 = file.path(DATA_DIR, "HGG N22 1043 1-1-13/ROI1/N22 1043 none.csv"),
-
-  # --- N23_573 — 3 ROIs ---
-  N23_573_R1 = file.path(DATA_DIR, "HGG N23 573 1-1-6/ROI 1/N23 573 ROI 1 none.csv"),
-  N23_573_R2 = file.path(DATA_DIR, "HGG N23 573 1-1-6/ROI2/N23 573 ROI2 none.csv"),
-  N23_573_R3 = file.path(DATA_DIR, "HGG N23 573 1-1-6/ROI 3/N23 573 ROI 3 none.csv"),
-
-  # --- N23_818 — 1 ROI ---
-  # NB: filename has trailing space before .csv
-  N23_818_R1 = file.path(DATA_DIR, "HGG N23 818/ROI 1/HGG N23 818 ROI 1 Norm none .csv"),
-
-  # --- N24_1017 — 1 ROI ---
-  N24_1017_R1 = file.path(DATA_DIR, "HGG N24 1017/ROI 1/N24 1017 ROI 1 none.csv")
-)
-
-# ── Sample metadata ──────────────────────────────────────────────────────────
-# patient_id = neuropath code (unique per patient)
-SAMPLE_META <- data.frame(
-  sample_id  = names(CSV_FILES),
-  patient_id = c(
-    "N17_135", "N17_135",                          # 2 ROIs
-    "N21_838", "N21_838", "N21_838",               # 3 ROIs
-    "N21_898",                                      # 1 ROI
-    "N22_170", "N22_170", "N22_170",               # 3 ROIs
-    "N22_1043",                                     # 1 ROI
-    "N23_573", "N23_573", "N23_573",               # 3 ROIs
-    "N23_818",                                      # 1 ROI
-    "N24_1017"                                      # 1 ROI
-  ),
-  roi_id = c(
-    "ROI1", "ROI2",
-    "ROI1", "ROI2", "ROI3",
-    "ROI1",
-    "ROI1", "ROI2", "ROI3",
-    "ROI1",
-    "ROI1", "ROI2", "ROI3",
-    "ROI1",
-    "ROI1"
-  ),
-  stringsAsFactors = FALSE
-)
-
-# ── Clinical data per patient ────────────────────────────────────────────────
-# Source: info/Patienten_Neuropatho_Immunovac.xlsx
-# OS and PFS in months from surgery (OP date)
-# PFS_group: ≥6 months = "responder", <6 months = "non-responder"
-#   Natural gap in PFS data between 5.18 and 6.59 months → clean split 4 vs 4
-CLINICAL <- data.frame(
-  patient_id = c("N17_135", "N21_838", "N21_898", "N22_170",
-                  "N22_1043", "N23_573", "N23_818", "N24_1017"),
-  os_months  = c(32.89, 10.98, 8.36, 8.98, 12.33, 9.67, 7.08, 7.48),
-  pfs_months = c(16.82,  4.03, 8.30, 3.44,  6.59, 7.08, 4.26, 5.18),
-  mgmt_status = c("unknown", "methyliert", "methyliert", "nicht_methyliert",
-                   "methyliert", "nicht_methyliert", "nicht_methyliert", "methyliert"),
-  histology = c(
-    "GBM_IV",
-    "diffuse_hemispheric_HGG_H3_G34",
-    "infant_HGG",
-    "DMG_H3_K27",
-    "diffuse_hemispheric_HGG_H3_G34",
-    "diffuse_pediatric_HGG_H3_IDH_wt",
-    "diffuse_pediatric_HGG_H3_IDH_wt",
-    "diffuse_hemispheric_HGG_H3_G34"
-  ),
-  cohort = c("Vorphase", "Studienpatienten", "Studienpatienten", "Studienpatienten",
-             "Studienpatienten", "Studienpatienten", "Studienpatienten", "Studienpatienten"),
-  stringsAsFactors = FALSE
-)
-
+# PFS group: >= 6 months = "responder", < 6 months = "non_responder"
 PFS_CUTOFF <- 6  # months
 CLINICAL$pfs_group <- ifelse(CLINICAL$pfs_months >= PFS_CUTOFF, "responder", "non_responder")
 

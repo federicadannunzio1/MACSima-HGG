@@ -1,0 +1,5 @@
+sample_id	patient_id	roi_id	csv_file
+P01_R1	P01	ROI1	P01/ROI 1/P01 ROI 1 none.csv
+P01_R2	P01	ROI2	P01/ROI 2/P01 ROI 2 none.csv
+P02_R1	P02	ROI1	P02/ROI 1/P02 ROI 1 none.csv
+P03_R1	P03	ROI1	P03/ROI 1/P03 ROI 1 none.csv
