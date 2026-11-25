@@ -16,6 +16,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
 source(file.path(getwd(), "R/scores.R"))
@@ -31,7 +33,7 @@ library(RColorBrewer)
 
 message("=== Step 7: Patient-level feature matrix ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "06_seurat_gated.rds"))
+seurat_obj <- readRDS(rds_path("seurat_gated"))
 
 mfi_norm <- t(as.matrix(GetAssayData(seurat_obj, assay = "MFI", layer = "data")))
 mfi_df   <- as.data.frame(mfi_norm)
@@ -170,7 +172,7 @@ ratio_df <- immune_ratio_wide %>%
 feat_combined <- merge(feat_combined, ratio_df, by = "row.names", all = TRUE) %>%
   tibble::column_to_rownames("Row.names")
 
-saveRDS(feat_combined, file.path(RDS_DIR, "07_patient_features.rds"))
+saveRDS(feat_combined, rds_path("patient_features"))
 
 message(sprintf("\nPatient feature matrix: %d patients x %d features",
                 nrow(feat_combined), ncol(feat_combined)))

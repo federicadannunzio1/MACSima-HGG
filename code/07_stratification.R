@@ -8,6 +8,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -22,7 +24,7 @@ library(ggrepel)
 
 message("=== Step 7: Patient stratification (blind) ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "06_seurat_gated.rds"))
+seurat_obj <- readRDS(rds_path("seurat_gated"))
 
 # ── 1. Feature matrix paziente: composizione gating ──────────────────────────
 comp_gating <- read_tsv(file.path(TAB_DIR, "06_composition_gating.tsv"),

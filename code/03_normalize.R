@@ -7,6 +7,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -18,7 +20,7 @@ library(patchwork)
 
 message("=== Step 3: Arcsinh normalization ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "02_seurat_qc.rds"))
+seurat_obj <- readRDS(rds_path("seurat_qc"))
 
 mfi_raw    <- GetAssayData(seurat_obj, assay = "MFI", layer = "counts")
 markers    <- rownames(mfi_raw)
@@ -111,5 +113,5 @@ seurat_obj <- ScaleData(seurat_obj, assay = "MFI", features = markers, verbose =
 message("ScaleData complete.")
 
 # ── 8. Save ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "03_seurat_normalized.rds"))
+saveRDS(seurat_obj, rds_path("seurat_normalized"))
 message("\nStep 3 complete. Saved: output/data/03_seurat_normalized.rds")

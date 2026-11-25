@@ -13,6 +13,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(readr)
@@ -27,7 +29,7 @@ library(ggrepel)
 message("=== Step 8: Clinical integration ===")
 
 # ── Load data ────────────────────────────────────────────────────────────────
-feat_combined  <- readRDS(file.path(RDS_DIR, "07_patient_features.rds"))
+feat_combined  <- readRDS(rds_path("patient_features"))
 score_table    <- read_tsv(file.path(TAB_DIR, "07_functional_scores.tsv"), show_col_types = FALSE)
 comp_gating    <- read_tsv(file.path(TAB_DIR, "06_composition_gating.tsv"), show_col_types = FALSE)
 immune_ratio   <- read_tsv(file.path(TAB_DIR, "07_immune_tumor_ratio.tsv"), show_col_types = FALSE)

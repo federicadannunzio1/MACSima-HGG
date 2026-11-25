@@ -10,6 +10,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
 
@@ -28,7 +30,7 @@ message("=== Step 6: Rule-based gating ===")
 GATING <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
 THR    <- GATING$thresholds
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "05_seurat_clustered.rds"))
+seurat_obj <- readRDS(rds_path("seurat_clustered"))
 
 # Extract normalized data as data.frame (cells x markers)
 mfi_norm <- t(as.matrix(GetAssayData(seurat_obj, assay = "MFI", layer = "data")))
@@ -202,7 +204,7 @@ compute_positivity <- function() {
     }
 
     # Mask QC-flagged marker/sample combinations
-    flag_col <- sub("{canonical}", gsub("-", "_", sname), GATING$flags$column, fixed = TRUE)
+    flag_col <- sub("{canonical}", to_canonical_name(sname), GATING$flags$column, fixed = TRUE)
     if (flag_col %in% colnames(flag_mat)) {
       is_flagged         <- !is.na(flag_mat[[flag_col]]) & flag_mat[[flag_col]]
       result[is_flagged] <- NA
@@ -348,8 +350,8 @@ save_plot(p_umap_gating + p_umap_cluster,
           width = 20, height = 7)
 
 # ── 8. SAVE ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "06_seurat_gated.rds"))
-saveRDS(mfi_df,     file.path(RDS_DIR, "06_mfi_gated.rds"))
+saveRDS(seurat_obj, rds_path("seurat_gated"))
+saveRDS(mfi_df,     rds_path("mfi_gated"))
 
 # ── 9. GATING DEVIATIONS TABLE ──────────────────────────────────────────────
 # Every difference from the reference diagram, generated from config/gating_tree.yaml

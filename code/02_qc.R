@@ -5,6 +5,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -15,7 +17,7 @@ library(patchwork)
 
 message("=== Step 2: Cell QC ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "01_seurat_raw.rds"))
+seurat_obj <- readRDS(rds_path("seurat_raw"))
 
 # ── 1. Compute QC metrics ─────────────────────────────────────────────────────
 mfi_mat <- GetAssayData(seurat_obj, assay = "MFI", layer = "counts")
@@ -81,5 +83,5 @@ save_plot(qc_panel,
           width = 16, height = 10)
 
 # ── 5. Save ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "02_seurat_qc.rds"))
+saveRDS(seurat_obj, rds_path("seurat_qc"))
 message("\nStep 2 complete. Saved: output/data/02_seurat_qc.rds")

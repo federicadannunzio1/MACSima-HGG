@@ -5,6 +5,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -14,7 +16,7 @@ library(patchwork)
 
 message("=== Step 4: PCA + Harmony + UMAP ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "03_seurat_normalized.rds"))
+seurat_obj <- readRDS(rds_path("seurat_normalized"))
 markers    <- rownames(seurat_obj)
 
 # ── 1. PCA ───────────────────────────────────────────────────────────────────
@@ -108,5 +110,5 @@ save_plot(p_umap_sample,     file.path(dimred_dir, "04_umap_roi.pdf"),          
 save_plot(feat_plots,        file.path(dimred_dir, "04_umap_features.pdf"),     width = 16, height = 4 * ceiling(length(key_markers) / 4))
 
 # ── 7. Save ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "04_seurat_dimred.rds"))
+saveRDS(seurat_obj, rds_path("seurat_dimred"))
 message("\nStep 4 complete. Saved: output/data/04_seurat_dimred.rds")
