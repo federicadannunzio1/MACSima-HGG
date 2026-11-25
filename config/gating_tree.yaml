@@ -72,11 +72,10 @@ thresholds:
   fallback_quantile: 0.85 # ... the threshold becomes this quantile
 
 # QC flags (constants.R QC_FLAGS) make a marker negative in the flagged ROI.
-# KNOWN ISSUE G2: the flag column is looked up as flag_<logical name>, while
-# 01_load_data.R names it flag_<canonical marker>: the flags of LAG3 (CD223),
-# CD20 (CD20_Cytoplasmic) and Ki67 (Ki_67) are never applied.
+# Column of 01_load_data.R: flag_<canonical marker name> = the feature name with
+# "-" written "_" (flag_CD223, flag_CD20_Cytoplasmic, flag_Ki_67).
 flags:
-  column: "flag_{logical}"
+  column: "flag_{canonical}"
 
 # Gate of node `immune`: if CD45 is NA (flagged) in more than this fraction of
 # all cells, immune = any of the proxy markers.

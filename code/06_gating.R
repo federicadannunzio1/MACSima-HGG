@@ -167,7 +167,7 @@ compute_positivity <- function() {
     }
 
     # Mask QC-flagged marker/sample combinations
-    flag_col <- sub("{logical}", lname, GATING$flags$column, fixed = TRUE)
+    flag_col <- sub("{canonical}", gsub("-", "_", sname), GATING$flags$column, fixed = TRUE)
     if (flag_col %in% colnames(flag_mat)) {
       is_flagged         <- !is.na(flag_mat[[flag_col]]) & flag_mat[[flag_col]]
       result[is_flagged] <- NA
