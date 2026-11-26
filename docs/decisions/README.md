@@ -12,3 +12,4 @@ pull request, after it is accepted.
 | 0003 | [QC-flagged markers become missing for their ROI](0003-flagged-markers-na.md) | Proposed |
 | 0004 | [B7-H3 reagents are not merged; B7-H3 and GD2 are excluded from scores](0004-b7h3-gd2.md) | Proposed |
 | 0005 | [MFI scores subtract the ROI background (mode)](0005-mfi-background.md) | Proposed |
+- [0006](0006-gating-follows-diagram.md) — Gating follows the reference diagram literally (accepted provisionally)

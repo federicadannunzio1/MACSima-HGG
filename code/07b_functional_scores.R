@@ -16,6 +16,8 @@
 
 source(file.path(getwd(), "code/utils/constants.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
+source(file.path(getwd(), "code/utils/gating_tree.R"))
+GATING <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
 
 library(Seurat)
 library(ggplot2)
@@ -62,9 +64,7 @@ avail_exhaust <- intersect(EXHAUSTION_MARKERS, markers_available)
 message(sprintf("Exhaustion markers disponibili: %s", paste(avail_exhaust, collapse = ", ")))
 
 t_cd8_cells <- mfi_df %>%
-  filter(celltype_gating %in% c("T_CD8_exhausted", "T_CD8_naive",
-                                  "T_CD8_CM", "T_CD8_EM",
-                                  "T_CD8_TEMRA", "T_CD8_other"))
+  filter(celltype_gating %in% gating_labels_under(GATING, "T_CD8"))
 
 exhaust_score <- score_by_patient(t_cd8_cells, avail_exhaust) %>%
   rename(T_CD8_exhaustion = score, n_TCD8 = n_cells)
@@ -76,8 +76,8 @@ avail_m1 <- intersect(M1_MARKERS, markers_available)
 avail_m2 <- intersect(M2_MARKERS, markers_available)
 
 myeloid_cells <- mfi_df %>%
-  filter(celltype_gating %in% c("Microglia", "TAM_M1", "TAM_M2", "Macrophage_other",
-                                  "Monocyte", "Other_immune"))
+  filter(celltype_gating %in% setdiff(gating_labels_under(GATING, "myeloid"),
+                                      gating_labels_under(GATING, "Neutrophil")))
 
 m1_score <- score_by_patient(myeloid_cells, avail_m1) %>%
   rename(M1_score = score, n_myeloid = n_cells)
@@ -146,17 +146,7 @@ if (length(tumor_antigen_scores) > 0) {
 
 # ── 7. Immune infiltration density ───────────────────────────────────────────
 immune_fraction <- mfi_df %>%
-  mutate(is_immune = celltype_gating %in% c(
-    "T_CD4_naive", "T_CD4_CM", "T_CD4_EM", "T_CD4_TEMRA", "T_CD4_exhausted", "T_CD4_other",
-    "T_reg",
-    "T_CD8_naive", "T_CD8_CM", "T_CD8_EM", "T_CD8_TEMRA", "T_CD8_exhausted", "T_CD8_other",
-    "T_other",
-    "B_cell", "NKT",
-    "NK_effector", "NK_immature",
-    "Neutrophil", "Microglia", "Monocyte",
-    "TAM_M1", "TAM_M2", "Macrophage_other",
-    "Other_immune"
-  )) %>%
+  mutate(is_immune = celltype_gating %in% gating_labels_under(GATING, "immune")) %>%
   group_by(patient_id) %>%
   summarise(Immune_fraction = mean(is_immune, na.rm = TRUE), .groups = "drop")
 

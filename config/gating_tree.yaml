@@ -1,0 +1,389 @@
+# =============================================================================
+# Gating tree — single source of the cell-type gating applied by code/06_gating.R
+#
+# Reference: info/gating strategy for the analysis.png (not versioned; ask the
+# repository owner). Every population of the diagram appears here as a node
+# (field `png`), as an annotation, or under `not_implemented`, with the reason.
+# tests/test_gating_tree.R checks this against tests/fixtures/png_nodes.tsv
+# (the diagram transcribed by hand) and docs/gating_tree.md is generated from
+# this file (code/utils/gating_tree.R, write_gating_mermaid()).
+#
+# How the tree is applied (code/utils/gating_tree.R, apply_gating_tree()):
+#   - a marker is "positive" in a cell when its value is above the threshold of
+#     its patient or ROI (`thresholds`); a QC-flagged marker counts as negative;
+#   - a node takes the cells of its parent that pass its gate:
+#       pos: [A, B]  all positive      neg: [A, B]  all negative
+#       any: [A, B]  at least one positive        rest: true  cells of the
+#       parent not taken by an earlier sibling;
+#   - a node with `label` gives that label to all its cells; its children are
+#     applied afterwards, in the order written, and overwrite it. Cells that no
+#     child takes keep the label of the node (or of the nearest ancestor);
+#   - siblings should not overlap; where they do, the later one wins (noted).
+#
+# The tree follows the diagram where it is explicit; every
+# difference is in the node's `deviation` field (or in `general_deviations` /
+# `not_implemented`) and goes to 06_gating_deviations.tsv and docs/gating_tree.md.
+# Notation of the diagram, as read here: "A+/B+" = both positive (as CD3+/CD56+
+# for NKT); "A+, B+" = both (as HLA-DR+, Ki-67+); the branches of a gateway
+# partition the parent (the lab's counts add up at every gateway), so a
+# "-/-" branch takes all the cells the "+/+" branch does not take (`rest`).
+# =============================================================================
+
+version: 1
+reference: "info/gating strategy for the analysis.png"
+default_label: Unclassified
+
+# Gating markers: logical name -> feature name in the Seurat object (Seurat
+# replaces "_" with "-": CD20-Cytoplasmic, HLA-DR, Ki-67). Step 06 stops if one
+# is missing.
+markers:
+  CD45: CD45
+  CD20: CD20-Cytoplasmic
+  CD3: CD3
+  CD56: CD56
+  CD4: CD4
+  CD8a: CD8a
+  FoxP3: FoxP3
+  PD1: CD279
+  TIM3: TIM3
+  LAG3: CD223
+  CCR7: CCR7
+  CD45RA: CD45RA
+  CD45RO: CD45RO
+  HLA_DR: HLA-DR
+  Ki67: Ki-67
+  CD16: CD16
+  CD15: CD15
+  CD14: CD14
+  CD68: CD68
+  P2Y12: P2Y12
+  CD163: CD163
+  CD206: CD206
+  CD31: CD31
+  CD34: CD34
+  GFAP: GFAP
+  BCAN: BCAN
+  Podoplanin: Podoplanin
+  Vimentin: Vimentin
+  CD105: CD105
+
+thresholds:
+  # gmm2:   per patient, two-component Gaussian mixture (default, as 432d1c3).
+  # negpop: per ROI, negative population (decision 2 of 19/11; to validate on the images).
+  method: gmm2
+  # gmm2
+  seed: 1                 # set before every fit (Mclust starts from a random subset of 2000 cells)
+  on_fit_error: 0.90      # quantile used when the mixture cannot be fitted
+  max_positive: 0.60      # above this fraction of positive cells ...
+  fallback_quantile: 0.85 # ... the threshold becomes this quantile
+  # negpop: threshold = mode of the KDE + k_mad x MAD of the values below the mode. The
+  # bandwidth is FIXED (arcsinh units): with Scott's rule on a random subsample the mode of a
+  # ROI with two peaks of similar height jumped between them (N22_170_R2 CD68: 3% or 44%
+  # positive). With 0.1 the highest peak is stable there from 0.075 to 0.2.
+  negpop:
+    bandwidth: 0.1
+    k_mad: 3
+    min_mad: 0.05
+    grid: 512
+    range_quantiles: [0.005, 0.995]
+
+# QC flags (constants.R QC_FLAGS) make a marker negative in the flagged ROI.
+# Column of 01_load_data.R: flag_<canonical marker name> = the feature name with
+# "-" written "_" (flag_CD223, flag_CD20_Cytoplasmic, flag_Ki_67).
+flags:
+  column: "flag_{canonical}"
+
+# Gate of node `immune`: if CD45 is NA (flagged) in more than this fraction of
+# all cells, immune = any of the proxy markers.
+immune_fallback:
+  node: immune
+  marker: CD45
+  max_na_fraction: 0.30
+  proxy_any: [CD3, CD68, CD56]
+
+tree:
+  - id: immune
+    png: immune_cells
+    gate: {pos: [CD45]}
+    children:
+      - id: B_cell
+        png: B_cells
+        gate: {pos: [CD20]}
+        label: B_cell
+      - id: CD20neg
+        png: CD20neg
+        gate: {neg: [CD20]}
+        children:
+          - id: NKT
+            png: NKT_cells
+            gate: {pos: [CD3, CD56]}
+            label: NKT
+            mfi: [NKG2D]
+          - id: T
+            png: T_cells
+            gate: {pos: [CD3], neg: [CD56]}
+            mfi: [GD2]
+            deviation:
+              diagram: "CD45+ -> CD3+ -> T cells"
+              reason: "Under CD20- and CD56- so that B, T and NKT cells (CD20- CD3+ CD56+) do not overlap"
+            children:
+              - id: T_CD8
+                png: CD8_T_cells
+                gate: {pos: [CD8a], neg: [CD4]}
+                deviation:
+                  diagram: "CD8+ -> CD8+ T cells"
+                  reason: "CD4- so that CD8 and CD4 T cells do not overlap; CD4+ CD8+ T cells: node T_DP"
+                children:
+                  # Diagram "PD1+, TIM3+, CD223": all three, as "HLA-DR+, Ki-67+" = both
+                  # for activated in proliferation in the same diagram.
+                  - id: T_CD8_exhausted
+                    png: exhausted_CD8
+                    gate: {pos: [PD1, TIM3, LAG3]}
+                    label: T_CD8_exhausted
+                  - id: T_CD8_rest
+                    gate: {rest: true}
+                    label: T_CD8_other
+                    deviation:
+                      diagram: "CD8+ T cells -> CCR7 -> CD45RA/CD45RO (parallel to the exhausted branch)"
+                      reason: "One label per cell: exhausted has priority, differentiation states only for the other CD8 T cells; CD8 T cells in no state are T_CD8_other. CCR7+ CD45RA+ CD45RO+: CM wins over naive; CCR7- CD45RA+ CD45RO+: TEMRA wins over EM"
+                    children:
+                      - {id: T_CD8_naive, png: naive_CD8, gate: {pos: [CCR7, CD45RA]}, label: T_CD8_naive}
+                      - {id: T_CD8_CM, png: CM_CD8, gate: {pos: [CCR7, CD45RO]}, label: T_CD8_CM}
+                      - {id: T_CD8_EM, png: EM_CD8, gate: {pos: [CD45RO], neg: [CCR7]}, label: T_CD8_EM}
+                      - {id: T_CD8_TEMRA, png: TEMRA_CD8, gate: {pos: [CD45RA], neg: [CCR7]}, label: T_CD8_TEMRA}
+              - id: T_CD4
+                png: CD4_T_cells
+                gate: {pos: [CD4], neg: [CD8a]}
+                deviation:
+                  diagram: "CD4+ -> CD4+ T cells"
+                  reason: "CD8a- so that CD4 and CD8 T cells do not overlap; CD4+ CD8+ T cells: node T_DP"
+                children:
+                  - id: T_reg
+                    png: Tregs
+                    gate: {pos: [FoxP3]}
+                    label: T_reg
+                  - id: T_CD4_nonreg
+                    gate: {neg: [FoxP3]}
+                    deviation:
+                      diagram: "CD4+ T cells -> Tregs | activated | exhausted, and (parallel) CCR7 -> CD45RA/CD45RO"
+                      reason: "One label per cell: Tregs first, then exhausted, then differentiation states for the other FoxP3- CD4 T cells (Tregs get no differentiation state)"
+                    children:
+                      - id: T_CD4_exhausted
+                        png: exhausted_CD4
+                        gate: {pos: [PD1, TIM3, LAG3]}
+                        label: T_CD4_exhausted
+                      - id: T_CD4_rest
+                        gate: {rest: true}
+                        label: T_CD4_other
+                        deviation:
+                          diagram: "not in the diagram"
+                          reason: "FoxP3- non-exhausted CD4 T cells in no differentiation state"
+                        children:
+                          - {id: T_CD4_naive, png: naive_CD4, gate: {pos: [CCR7, CD45RA]}, label: T_CD4_naive}
+                          - {id: T_CD4_CM, png: CM_CD4, gate: {pos: [CCR7, CD45RO]}, label: T_CD4_CM}
+                          - {id: T_CD4_EM, png: EM_CD4, gate: {pos: [CD45RO], neg: [CCR7]}, label: T_CD4_EM}
+                          - {id: T_CD4_TEMRA, png: TEMRA_CD4, gate: {pos: [CD45RA], neg: [CCR7]}, label: T_CD4_TEMRA}
+              - id: T_other
+                gate: {neg: [CD8a, CD4]}
+                label: T_other
+                deviation:
+                  diagram: "not in the diagram"
+                  reason: "CD4- CD8- T cells (owner, 25/11)"
+              - id: T_DP
+                gate: {pos: [CD4, CD8a]}
+                deviation:
+                  diagram: "not in the diagram"
+                  reason: "CD4+ CD8+ T cells: no label (Unclassified), as in 432d1c3"
+          - id: NK
+            png: NK_cells
+            gate: {pos: [CD56], neg: [CD3]}
+            mfi: [NKG2D, TIGIT]
+            deviation:
+              diagram: "CD20- -> CD56+ -> NK cells"
+              reason: "CD3- so that NK and NKT cells do not overlap. NK cells must be CD45+: without it they would be 49% of the immune cells, as in the lab's counts, but 56% of CD56+ CD45- cells are GFAP+ or BCAN+ (glial)"
+            children:
+              - {id: NK_effector, png: effector_NK, gate: {pos: [CD16]}, label: NK_effector}
+              - {id: NK_immature, png: immature_NK, gate: {neg: [CD16]}, label: NK_immature}
+          - id: myeloid
+            png: myeloids
+            gate: {neg: [CD3, CD56]}
+            label: Myeloid_other
+            mfi: [GD2]
+            deviation:
+              diagram: "CD3-/CD56- -> myeloids -> neutrophils | microglia | CD14+"
+              reason: "Myeloid cells in no branch of the diagram (CD15- CD14- P2Y12-) are Myeloid_other. 432d1c3 split their CD68+ part into M1 (by CD80, not in the diagram), M2 and Macrophage_other, and called the rest Other_immune"
+            children:
+              - id: Neutrophil
+                png: neutrophils
+                gate: {pos: [CD15]}
+                label: Neutrophil
+              - id: CD15neg
+                gate: {neg: [CD15]}
+                children:
+                  - id: Microglia
+                    png: normal_microglia
+                    gate: {pos: [P2Y12], neg: [CD14]}
+                    label: Microglia
+                    mfi: [TMEM119, P2Y12, Arginase_1]
+                    deviation:
+                      diagram: "CD14-/CD15- -> Iba1+ -> normal microglia"
+                      reason: "Iba1 not in the shared panel (9/15 ROI): P2Y12+ instead (owner, 25/11); P2Y12 is specific for CNS-resident microglia"
+                  - id: CD14pos
+                    gate: {pos: [CD14]}
+                    children:
+                      - id: macrophage
+                        png: macrophages
+                        gate: {pos: [CD68]}
+                        label: Macrophage_other
+                        deviation:
+                          diagram: "CD14+ -> Iba1+/CD68+ -> macrophages -> M1 | M2"
+                          reason: "Iba1 not in the shared panel: CD68+ only; CD15- because neutrophils are taken first. Macrophages that are neither M1 (CD163- CD206-) nor M2 (CD163+ CD206+) are Macrophage_other"
+                        children:
+                          - {id: TAM_M2, png: M2_TAM, gate: {pos: [CD163, CD206]}, label: TAM_M2, mfi: [CD209, Arginase_1]}
+                          - {id: TAM_M1, png: M1, gate: {neg: [CD163, CD206]}, label: TAM_M1}
+                      - id: Monocyte
+                        png: monocytes
+                        gate: {neg: [CD68]}
+                        label: Monocyte
+                        deviation:
+                          diagram: "CD14+ -> Iba1-/CD68- -> monocytes"
+                          reason: "Iba1 not in the shared panel: CD68- only; CD15- because neutrophils are taken first"
+  - id: nonimmune
+    png: CD45neg
+    gate: {rest: true}
+    deviation:
+      diagram: "CD45- -> non-immune cells"
+      reason: "All cells not taken by `immune`: CD45- and CD45-flagged cells (if CD45 is flagged in > 30% of all cells, immune = CD3+ or CD68+ or CD56+, see immune_fallback)"
+    children:
+      # Diagram: CD31+/CD34+ (both, as CD3+/CD56+ for NKT) -> endothelial cells.
+      - {id: Endothelial, png: endothelial_cells, gate: {pos: [CD31, CD34]}, label: Endothelial}
+      - id: CD31neg_CD34neg
+        png: CD31neg_CD34neg
+        gate: {rest: true}
+        label: Unclassified_nonimmune
+        deviation:
+          diagram: "CD31-/CD34-"
+          reason: "All the other CD45- cells, also CD31+ CD34- and CD31- CD34+ (the lab's counts partition every gateway: their leaves add up to the parent). CD45- cells in no leaf are Unclassified_nonimmune"
+        children:
+          - id: PodVim
+            png: podoplanin_vimentin_pos
+            gate: {pos: [Podoplanin, Vimentin]}
+            children:
+              - id: Tumor
+                png: tumor_cells
+                gate: {any: [GFAP, BCAN]}
+                label: Tumor
+                mfi: [B7H3, GD2, MGMT, EZHIP, Ki_67, p53, HLA_DR, HLA_ABC, CIITA]
+                deviation:
+                  diagram: "podoplanin+/vimentin+ -> GFAP+/OLIG2+ -> tumor cells"
+                  reason: "OLIG2 not in the panel: GFAP+ OR BCAN+ (owner, 25/11); BCAN (brevican) is brain-specific"
+              - id: PodVim_GFAPneg
+                gate: {neg: [GFAP, BCAN]}
+                deviation:
+                  diagram: "podoplanin+/vimentin+ -> GFAP-/OLIG2- -> CD105"
+                  reason: "OLIG2 not in the panel: GFAP- and BCAN- (complement of the tumor gate)"
+                children:
+                  - {id: Mesenchymal, png: mesenchymal_cells, gate: {pos: [CD105]}, label: Mesenchymal}
+                  - id: Fibroblast
+                    png: fibroblasts
+                    gate: {neg: [CD105]}
+                    label: Fibroblast
+                    deviation:
+                      diagram: "CD105- -> fibroblasts; CD105- -> Iba1+/CD68+ -> tumor microglia"
+                      reason: "CD105- cells are fibroblasts unless tumor microglia (child node)"
+                    children:
+                      - id: Tumor_microglia
+                        png: tumor_microglia
+                        gate: {pos: [CD68]}
+                        label: Tumor_microglia
+                        mfi: [TMEM119, P2Y12, Arginase_1]
+                        deviation:
+                          diagram: "CD105- -> Iba1+/CD68+ -> tumor microglia"
+                          reason: "Iba1 not in the shared panel: CD68+ only (as for macrophages)"
+          - id: PodVim_neg
+            png: podoplanin_vimentin_neg
+            gate: {rest: true}
+            deviation:
+              diagram: "podoplanin-/vimentin-"
+              reason: "All the other CD45- CD31-/CD34- cells, also podoplanin+ vimentin- and podoplanin- vimentin+ (partition, as the lab's counts)"
+            children:
+              - id: Astrocyte
+                png: astrocytes
+                gate: {pos: [GFAP]}
+                label: Astrocyte
+                mfi: [HLA_DR]
+                deviation:
+                  diagram: "podoplanin-/vimentin- -> GFAP+/OLIG2- -> astrocytes"
+                  reason: "OLIG2 not in the panel: GFAP+ only (OLIG2- not checked: may include GFAP+ OLIG2+ tumor cells). GFAP- cells here (oligodendrocytes or other) are Unclassified_nonimmune"
+
+# Per-cell readouts that are not cell types (stored as extra columns).
+# Diagram: activated (HLA-DR+), in proliferation (Ki-67+), activated and in
+# proliferation (both) for CD4 and CD8; here for every T label and NKT.
+annotations:
+  - column: T_activated
+    marker: HLA_DR
+    labels_regex: "^T_|^T_reg$|^NKT$"
+    png: [activated_CD4, activated_CD8, activated_proliferating_CD4, activated_proliferating_CD8]
+  - column: T_proliferating
+    marker: Ki67
+    labels_regex: "^T_|^T_reg$|^NKT$"
+    png: [proliferating_CD4, proliferating_CD8, activated_proliferating_CD4, activated_proliferating_CD8]
+
+# Populations of the diagram without an implementation.
+not_implemented:
+  - png: oligodendrocytes
+    reason: "OLIG2 not in the panel"
+
+# Output order and colours of the labels (06 composition table and figures).
+labels:
+  Tumor: "#E41A1C"
+  Endothelial: "#A65628"
+  Mesenchymal: "#FDBF6F"
+  Fibroblast: "#CAB2D6"
+  Tumor_microglia: "#F781BF"
+  Astrocyte: "#D2B48C"
+  Unclassified_nonimmune: "#CCCCCC"
+  T_CD4_naive: "#DEEBF7"
+  T_CD4_CM: "#9ECAE1"
+  T_CD4_EM: "#4292C6"
+  T_CD4_TEMRA: "#2171B5"
+  T_CD4_exhausted: "#08306B"
+  T_CD4_other: "#6BAED6"
+  T_reg: "#9E9AC8"
+  T_CD8_naive: "#E5F5E0"
+  T_CD8_CM: "#A1D99B"
+  T_CD8_EM: "#41AB5D"
+  T_CD8_TEMRA: "#238B45"
+  T_CD8_exhausted: "#00441B"
+  T_CD8_other: "#74C476"
+  T_other: "#C6DBEF"
+  B_cell: "#FB9A99"
+  NKT: "#E78AC3"
+  NK_effector: "#FF7F00"
+  NK_immature: "#FDBF6F"
+  Neutrophil: "#F0E442"
+  Microglia: "#984EA3"
+  Monocyte: "#BC80BD"
+  TAM_M1: "#FFD92F"
+  TAM_M2: "#4DAF4A"
+  Macrophage_other: "#B2DF8A"
+  Myeloid_other: "#999999"
+  Unclassified: "#EEEEEE"
+
+# Deviations that are not a node: added to 06_gating_deviations.tsv, which is generated from
+# this file (code/utils/gating_tree.R, gating_deviations(): node `deviation` fields, these, and
+# `not_implemented`). tests/test_gating_tree.R checks that every node that differs from the
+# diagram (tests/fixtures/png_nodes.tsv) has a `deviation`.
+general_deviations:
+  - item: thresholds
+    diagram: "not specified (the lab gates by hand in its software)"
+    implementation: "automatic: two-component GMM per patient (P85 fallback) or negative population per ROI (`thresholds`)"
+    reason: "Not yet validated against the lab's populations (F4a, F14)"
+  - item: QC flags
+    diagram: "not specified"
+    implementation: "a QC-flagged marker counts as negative in the tree and is NA in the T annotations"
+    reason: "Marker not measurable in that ROI (constants.R QC_FLAGS)"
+  - item: T annotations
+    diagram: "activated (HLA-DR+, Ki-67+ or both) for CD4 non-Tregs and CD8, alternative to exhausted"
+    implementation: "columns T_activated (HLA-DR+) and T_proliferating (Ki-67+) for every T label and NKT, independent of the label"
+    reason: "Readouts that overlay the differentiation states"
