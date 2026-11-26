@@ -135,30 +135,8 @@ CELLTYPE_RULES <- list(
 )
 
 # ── Analysis parameters ───────────────────────────────────────────────────────
-PARAMS <- list(
-  # Arcsinh normalization
-  cofactor_quantile  = 0.50,   # P50 per patient per marker
-
-  # Cell QC
-  min_total_mfi_pct  = 0.01,   # remove cells below 1st percentile of total MFI
-
-  # PCA
-  n_pcs              = 25,
-
-  # Harmony
-  harmony_group      = "patient_id",  # batch = patient
-
-  # UMAP
-  umap_neighbors     = 30,
-  umap_mindist       = 0.3,
-
-  # Clustering
-  louvain_resolutions = c(0.05, 0.1, 0.15, 0.2, 0.3),  # added 0.3 for more granularity with 8 patients
-
-  # Plots
-  point_size         = 0.2,    # smaller points for larger dataset
-  dpi                = 150
-)
+# Parameters of steps 02-06 (PCA, UMAP, Louvain, QC, cofactor, plots): config/pipeline.yaml, key params
+PARAMS <- PIPELINE$params
 
 # ── Color palettes ────────────────────────────────────────────────────────────
 PATIENT_COLORS <- c(
