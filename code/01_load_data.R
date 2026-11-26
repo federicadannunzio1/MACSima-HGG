@@ -6,6 +6,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -15,7 +17,7 @@ library(stringr)
 
 message("=== Step 1: Load data ===")
 
-harm <- readRDS(file.path(RDS_DIR, "00_harmonization.rds"))
+harm <- readRDS(rds_path("harmonization"))
 mapping_df     <- harm$mapping_df
 shared_markers <- harm$shared_markers
 
@@ -83,7 +85,7 @@ seurat_markers <- rownames(seurat_obj)
 message(sprintf("Seurat feature names: %d", length(seurat_markers)))
 
 canonical_to_seurat <- setNames(seurat_markers, shared_markers)
-saveRDS(canonical_to_seurat, file.path(RDS_DIR, "01_canonical_to_seurat_names.rds"))
+saveRDS(canonical_to_seurat, rds_path("canonical_to_seurat"))
 
 # ── 5. Add sample + clinical metadata ────────────────────────────────────────
 meta_df <- as.data.frame(all_cells[, c("sample_id", "patient_id", "roi_id", flag_cols)])
@@ -121,5 +123,5 @@ message(sprintf("Patients: %d (responder=%d, non-responder=%d)",
 write_tsv(cell_counts, file.path(TAB_DIR, "01_cell_counts.tsv"))
 
 # ── 7. Save ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "01_seurat_raw.rds"))
+saveRDS(seurat_obj, rds_path("seurat_raw"))
 message("\nStep 1 complete. Saved: output/data/01_seurat_raw.rds")

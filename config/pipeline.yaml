@@ -1,0 +1,28 @@
+# Parameters of the analysis that are not code. Read by code/utils/constants.R (R/config.R).
+# Changing a value here changes the results: re-run the pipeline from the step that uses it.
+
+# Outcome groups (steps 08 and constants.R): PFS >= cutoff -> "responder", otherwise "non_responder".
+pfs_cutoff_months: 6
+
+# Marker signatures of the patient-level scores (steps 07 and 07b). Names are Seurat feature names
+# ("_" is "-"); markers absent from the data are ignored. Score = mean of the available markers.
+signatures:
+  exhaustion:        ["TIGIT", "CD279", "TIM3", "CTLA-4"]   # T_CD8 exhaustion (CD279 = PD-1)
+  m1:                ["CD80"]                               # myeloid M1
+  m2:                ["CD163", "CD206"]                     # myeloid M2
+  hla:               ["HLA-ABC", "HLA-DR-DP-DQ", "HLA-DR"]  # tumour immunogenicity: the first two available are used
+  checkpoint_ligand: ["CD274", "B7H3"]                      # tumour immune evasion (B7H3: reagent artefact, see decision 0004)
+  ki67:              ["Ki-67", "Ki67", "KI-67"]             # proliferation; synonyms, any available
+  tumor_antigens:    ["NKG2D", "GD2", "MGMT", "EZHIP"]      # one score per marker
+
+# Parameters of steps 02-06 (were PARAMS in code/utils/constants.R). The code reads them as PARAMS$<name>.
+params:
+  cofactor_quantile:   0.50     # 03: arcsinh cofactor = this quantile of each marker, per patient (P50)
+  min_total_mfi_pct:   0.01     # 02: remove cells below this quantile of the total MFI (P1)
+  n_pcs:               25       # 04-05: principal components
+  harmony_group:       patient_id   # 04: Harmony batch variable (batch = patient)
+  umap_neighbors:      30       # 04: UMAP
+  umap_mindist:        0.3      # 04: UMAP
+  louvain_resolutions: [0.05, 0.1, 0.15, 0.2, 0.3]   # 05: Louvain resolutions (0.3 added later for 8 patients)
+  point_size:          0.2      # plots
+  dpi:                 150      # plots

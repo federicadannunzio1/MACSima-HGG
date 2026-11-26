@@ -16,8 +16,11 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
+source(file.path(getwd(), "R/scores.R"))
 
 library(Seurat)
 library(readr)
@@ -30,7 +33,7 @@ library(RColorBrewer)
 
 message("=== Step 7: Patient-level feature matrix ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "06_seurat_gated.rds"))
+seurat_obj <- readRDS(rds_path("seurat_gated"))
 
 mfi_norm <- t(as.matrix(GetAssayData(seurat_obj, assay = "MFI", layer = "data")))
 mfi_df   <- as.data.frame(mfi_norm)
@@ -41,17 +44,7 @@ mfi_df$celltype_gating <- seurat_obj$celltype_gating
 
 markers_available <- colnames(mfi_norm)
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-safe_mean <- function(x) if (length(x) == 0 || all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
-
-score_by_patient <- function(subset_df, markers) {
-  avail <- intersect(markers, colnames(subset_df))
-  if (length(avail) == 0) return(tibble(patient_id = character(), score = numeric()))
-  subset_df %>%
-    group_by(patient_id) %>%
-    summarise(score = safe_mean(rowMeans(across(all_of(avail)), na.rm = TRUE)),
-              n_cells = n(), .groups = "drop")
-}
+# (safe_mean() and score_by_patient() are in R/scores.R)
 
 # ── 1. Cell type composition (from gating) ────────────────────────────────────
 comp_gating <- read_tsv(file.path(TAB_DIR, "06_composition_gating.tsv"), show_col_types = FALSE)
@@ -65,7 +58,7 @@ feat_composition <- comp_gating %>%
 # ── 2. Functional scores ─────────────────────────────────────────────────────
 
 # 2a. T_CD8 exhaustion
-EXHAUST_MARKERS <- intersect(c("TIGIT", "CD279", "TIM3", "CTLA-4"), markers_available)
+EXHAUST_MARKERS <- intersect(SIGNATURES$exhaustion, markers_available)
 # Label groups from the gating tree (config/gating_tree.yaml), not hand-written lists
 GATING    <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
 cd8_ct    <- gating_labels_under(GATING, "T_CD8")
@@ -80,9 +73,9 @@ exhaust_score <- score_by_patient(t_cd8_cells, EXHAUST_MARKERS) %>%
 # 2b. Myeloid M2/M1
 myeloid_cells <- mfi_df %>%
   filter(celltype_gating %in% myeloid_ct)
-m1_score <- score_by_patient(myeloid_cells, intersect(c("CD80"), markers_available)) %>%
+m1_score <- score_by_patient(myeloid_cells, intersect(SIGNATURES$m1, markers_available)) %>%
   rename(M1_score = score, n_myeloid = n_cells)
-m2_score <- score_by_patient(myeloid_cells, intersect(c("CD163", "CD206"), markers_available)) %>%
+m2_score <- score_by_patient(myeloid_cells, intersect(SIGNATURES$m2, markers_available)) %>%
   select(patient_id, M2_score = score)
 myeloid_score <- m1_score %>%
   left_join(m2_score, by = "patient_id") %>%
@@ -90,17 +83,17 @@ myeloid_score <- m1_score %>%
 
 # 2c. Tumor immunogenicity (HLA on tumor cells)
 tumor_cells <- mfi_df %>% filter(celltype_gating == "Tumor")
-avail_hla <- intersect(c("HLA-ABC", "HLA-DR-DP-DQ", "HLA-DR"), markers_available)
+avail_hla <- intersect(SIGNATURES$hla, markers_available)
 immunogenicity_score <- score_by_patient(tumor_cells, avail_hla[1:min(2, length(avail_hla))]) %>%
   rename(Tumor_immunogenicity = score, n_tumor = n_cells)
 
 # 2d. Checkpoint ligand on tumor
-avail_ckpt <- intersect(c("CD274", "B7H3"), markers_available)
+avail_ckpt <- intersect(SIGNATURES$checkpoint_ligand, markers_available)
 immune_evasion_score <- score_by_patient(tumor_cells, avail_ckpt) %>%
   rename(Tumor_immune_evasion = score)
 
 # 2e. Proliferation (Ki-67)
-KI67_MARKER <- intersect(c("Ki-67", "Ki67", "KI-67"), markers_available)
+KI67_MARKER <- intersect(SIGNATURES$ki67, markers_available)
 if (length(KI67_MARKER) > 0) {
   ki67_tumor  <- score_by_patient(tumor_cells, KI67_MARKER) %>%
     rename(Ki67_tumor = score) %>% select(patient_id, Ki67_tumor)
@@ -113,7 +106,7 @@ if (length(KI67_MARKER) > 0) {
 }
 
 # 2f. Tumor antigens
-avail_ag <- intersect(c("NKG2D", "GD2", "MGMT", "EZHIP"), markers_available)
+avail_ag <- intersect(SIGNATURES$tumor_antigens, markers_available)
 tumor_antigen_scores <- lapply(avail_ag, function(m) {
   score_by_patient(tumor_cells, m) %>% rename(!!m := score) %>% select(patient_id, !!m)
 })
@@ -179,7 +172,7 @@ ratio_df <- immune_ratio_wide %>%
 feat_combined <- merge(feat_combined, ratio_df, by = "row.names", all = TRUE) %>%
   tibble::column_to_rownames("Row.names")
 
-saveRDS(feat_combined, file.path(RDS_DIR, "07_patient_features.rds"))
+saveRDS(feat_combined, rds_path("patient_features"))
 
 message(sprintf("\nPatient feature matrix: %d patients x %d features",
                 nrow(feat_combined), ncol(feat_combined)))

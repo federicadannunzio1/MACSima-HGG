@@ -6,6 +6,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -20,15 +22,14 @@ library(RColorBrewer)
 
 message("=== Step 5: Clustering + annotation ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "04_seurat_dimred.rds"))
+seurat_obj <- readRDS(rds_path("seurat_dimred"))
 markers    <- rownames(seurat_obj)
 
 # Update CELLTYPE_RULES to use Seurat's feature names (_ → -)
-normalize_marker <- function(x) gsub("_", "-", x)
 CELLTYPE_RULES_SEURAT <- lapply(CELLTYPE_RULES, function(rule) {
   list(
-    gate     = normalize_marker(rule$gate),
-    measured = normalize_marker(rule$measured)
+    gate     = to_seurat_name(rule$gate),
+    measured = to_seurat_name(rule$measured)
   )
 })
 # Patch specific name differences
@@ -186,6 +187,6 @@ save_plot(p_comp,
 write_tsv(comp_df, file.path(TAB_DIR, "05_composition_per_patient.tsv"))
 
 # ── 8. Save ──────────────────────────────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "05_seurat_clustered.rds"))
+saveRDS(seurat_obj, rds_path("seurat_clustered"))
 message("\nStep 5 complete. Saved: output/data/05_seurat_clustered.rds")
 message("NOTE: Inspect 05_cluster_heatmap.pdf and update 05b_annotation.R with manual labels.")

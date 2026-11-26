@@ -15,8 +15,11 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 source(file.path(getwd(), "code/utils/gating_tree.R"))
+source(file.path(getwd(), "R/scores.R"))
 GATING <- read_gating_tree(file.path(getwd(), "config/gating_tree.yaml"))
 
 library(Seurat)
@@ -30,7 +33,7 @@ library(readr)
 
 message("=== Step 7b: Functional immune scores (blind) ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "06_seurat_gated.rds"))
+seurat_obj <- readRDS(rds_path("seurat_gated"))
 
 # Estrai dati normalizzati + metadata
 mfi_norm <- t(as.matrix(GetAssayData(seurat_obj, assay = "MFI", layer = "data")))
@@ -39,27 +42,24 @@ mfi_df$cell_id        <- rownames(mfi_df)
 mfi_df$patient_id     <- seurat_obj$patient_id
 mfi_df$sample_id      <- seurat_obj$sample_id
 mfi_df$celltype_gating <- seurat_obj$celltype_gating
-mfi_df$celltype        <- seurat_obj$celltype  # annotazione manuale da clustering
+# Manual annotation (celltype) comes from step 05b: step 06 starts from the 05 object, which does not have it.
+# Cells are matched by ID; stop if 05b was not run or does not cover the same cells.
+if (!file.exists(rds_path("seurat_annotated")))
+  stop("07b needs the manual annotation of step 05b: run code/05b_annotation.R first")
+annot_ct <- readRDS(rds_path("seurat_annotated"))$celltype   # named by cell ID
+if (!all(colnames(seurat_obj) %in% names(annot_ct)))
+  stop("05b_seurat_annotated.rds does not contain all the cells of 06_seurat_gated.rds: re-run 05b on the same 05 object")
+mfi_df$celltype <- annot_ct[colnames(seurat_obj)]   # annotazione manuale da clustering
+rm(annot_ct)
 
 markers_available <- colnames(mfi_norm)
 message(sprintf("Marker disponibili: %d", length(markers_available)))
 
-# Helper: media sicura (NA se nessuna cellula del subset)
-safe_mean <- function(x) if (length(x) == 0 || all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
-
-# Helper: score = media di più marker, per paziente × subset
-score_by_patient <- function(subset_df, markers) {
-  avail <- intersect(markers, colnames(subset_df))
-  if (length(avail) == 0) return(tibble(patient_id = character(), score = numeric()))
-  subset_df %>%
-    group_by(patient_id) %>%
-    summarise(score = safe_mean(rowMeans(across(all_of(avail)), na.rm = TRUE)),
-              n_cells = n(), .groups = "drop")
-}
+# (safe_mean() and score_by_patient() are in R/scores.R)
 
 # ── 1. T_CD8 exhaustion score ────────────────────────────────────────────────
 # Marker di esaurimento: TIGIT, PD-1 (CD279), TIM-3, CTLA-4
-EXHAUSTION_MARKERS <- c("TIGIT", "CD279", "TIM3", "CTLA-4")
+EXHAUSTION_MARKERS <- SIGNATURES$exhaustion
 avail_exhaust <- intersect(EXHAUSTION_MARKERS, markers_available)
 message(sprintf("Exhaustion markers disponibili: %s", paste(avail_exhaust, collapse = ", ")))
 
@@ -70,8 +70,8 @@ exhaust_score <- score_by_patient(t_cd8_cells, avail_exhaust) %>%
   rename(T_CD8_exhaustion = score, n_TCD8 = n_cells)
 
 # ── 2. Mieloide M2 score (CD163 / (CD80 + CD163)) ────────────────────────────
-M1_MARKERS <- c("CD80")
-M2_MARKERS <- c("CD163", "CD206")
+M1_MARKERS <- SIGNATURES$m1
+M2_MARKERS <- SIGNATURES$m2
 avail_m1 <- intersect(M1_MARKERS, markers_available)
 avail_m2 <- intersect(M2_MARKERS, markers_available)
 
@@ -90,7 +90,7 @@ myeloid_score <- m1_score %>%
 
 # ── 3. Immunogenicità tumorale ────────────────────────────────────────────────
 # HLA-ABC = MHC-I (presentazione a T_CD8), HLA-DR = MHC-II (presentazione a T_CD4)
-IMMUNO_MARKERS <- c("HLA-ABC", "HLA-DR-DP-DQ", "HLA-DR")
+IMMUNO_MARKERS <- SIGNATURES$hla
 # Seurat può chiamarlo HLA-DR-DP-DQ o HLA-DR...
 avail_hla <- intersect(IMMUNO_MARKERS, markers_available)
 # Prendi quello disponibile
@@ -106,7 +106,7 @@ message(sprintf("HLA markers usati per immunogenicita': %s",
                 paste(avail_hla_simple, collapse = ", ")))
 
 # ── 4. Checkpoint ligand su tumore (immune evasion) ──────────────────────────
-CHECKPOINT_LIG <- c("CD274", "B7H3")
+CHECKPOINT_LIG <- SIGNATURES$checkpoint_ligand
 avail_ckpt <- intersect(CHECKPOINT_LIG, markers_available)
 message(sprintf("Checkpoint ligand markers: %s", paste(avail_ckpt, collapse = ", ")))
 
@@ -114,7 +114,7 @@ immune_evasion_score <- score_by_patient(tumor_cells, avail_ckpt) %>%
   rename(Tumor_immune_evasion = score)
 
 # ── 5. Proliferazione per compartimento ──────────────────────────────────────
-KI67_MARKER <- intersect(c("Ki-67", "Ki67", "KI-67"), markers_available)
+KI67_MARKER <- intersect(SIGNATURES$ki67, markers_available)
 
 if (length(KI67_MARKER) > 0) {
   ki67_tumor   <- score_by_patient(tumor_cells, KI67_MARKER) %>%
@@ -129,7 +129,7 @@ if (length(KI67_MARKER) > 0) {
 }
 
 # ── 6. Antigeni tumorali targetabili: NKG2D, GD2, MGMT, EZHIP ──────────────
-TUMOR_ANTIGEN_MARKERS <- c("NKG2D", "GD2", "MGMT", "EZHIP")
+TUMOR_ANTIGEN_MARKERS <- SIGNATURES$tumor_antigens
 avail_ag <- intersect(TUMOR_ANTIGEN_MARKERS, markers_available)
 message(sprintf("Tumor antigen markers: %s", paste(avail_ag, collapse = ", ")))
 

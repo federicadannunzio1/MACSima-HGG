@@ -7,6 +7,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 source(file.path(getwd(), "code/utils/plot_utils.R"))
 
 library(Seurat)
@@ -20,7 +22,7 @@ library(readr)
 
 message("=== Step 5b: Manual annotation (20 clusters) ===")
 
-seurat_obj <- readRDS(file.path(RDS_DIR, "05_seurat_clustered.rds"))
+seurat_obj <- readRDS(rds_path("seurat_clustered"))
 markers    <- rownames(seurat_obj)
 
 # ── 1. Manual annotation from heatmap ────────────────────────────────────────
@@ -242,5 +244,5 @@ pheatmap(avg_expr[top_markers, ],
          width = 10, height = 11)
 
 # ── 7. Save annotated Seurat object ──────────────────────────────────────────
-saveRDS(seurat_obj, file.path(RDS_DIR, "05b_seurat_annotated.rds"))
+saveRDS(seurat_obj, rds_path("seurat_annotated"))
 message("\nStep 5b complete. Saved: output/data/05b_seurat_annotated.rds")

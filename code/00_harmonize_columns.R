@@ -6,6 +6,8 @@
 # =============================================================================
 
 source(file.path(getwd(), "code/utils/constants.R"))
+source(file.path(getwd(), "R/io.R"))
+source(file.path(getwd(), "R/markers.R"))
 
 library(readr)
 library(stringr)
@@ -120,7 +122,7 @@ saveRDS(list(
   subset_markers = subset_markers,
   all_markers    = all_markers,
   ctrl_markers   = unique(ctrl_mapping$canonical)
-), file = file.path(RDS_DIR, "00_harmonization.rds"))
+), file = rds_path("harmonization"))
 
 write_tsv(mapping_df, file.path(TAB_DIR, "00_column_mapping.tsv"))
 write_tsv(
