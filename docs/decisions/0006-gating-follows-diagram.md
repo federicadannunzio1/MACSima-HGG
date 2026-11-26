@@ -1,6 +1,7 @@
 # 0006 — Gating follows the reference diagram literally
 
-Status: **Accepted provisionally** (2026-11-27, maintainer; to confirm with the owner).
+Status: **Accepted** (2026-11-27, maintainer; confirmed by the owner on 2026-11-26 with one change:
+podoplanin **or** vimentin, see "Owner's review").
 
 ## Context
 The gating of commit 432d1c3 differed from `info/gating strategy for the analysis.png` in ways not written in
@@ -13,7 +14,7 @@ Read the diagram literally, with one rule for its notation:
 - "A+/B+" = both positive (as "CD3+/CD56+" for NKT cells); "A+, B+" = both (as "HLA-DR+, Ki-67+").
 - The branches of a gateway partition the parent (the lab's counts add up at every gateway): a "−/−" branch
   takes every cell the "+/+" branch does not take.
-- Hence: tumor = podoplanin+ and vimentin+, then GFAP+ or BCAN+ (OLIG2 not in the panel); endothelial =
+- Hence: tumor = podoplanin+ and vimentin+ (changed to "or" by the owner, below), then GFAP+ or BCAN+ (OLIG2 not in the panel); endothelial =
   CD31+ and CD34+; M2 = CD163+ and CD206+ (mixed: `Macrophage_other`); exhausted = PD-1+, TIM-3+ and LAG-3+.
 - Populations of the diagram implemented with the panel: astrocytes (GFAP+ in podoplanin−/vimentin−),
   tumor microglia (CD68+ in CD105−). Branches not in the diagram removed (`Stromal`, CD80-based M1,
@@ -35,5 +36,14 @@ Read the diagram literally, with one rule for its notation:
 ## Consequences
 Composition changes a lot; no outcome signal is robust before or after (seeds, thresholds, flags, batch).
 Half of the non-immune cells reach no leaf with automatic thresholds: the distance from the lab's counts comes
-from the thresholds (decision 0002), not from the tree. Open: podoplanin/vimentin "and" vs "or", and the
-number of receptors for exhaustion, to confirm with the owner.
+from the thresholds (decision 0002), not from the tree.
+
+## Owner's review (2026-11-26)
+- **Podoplanin+ or vimentin+** before GFAP/BCAN for tumor cells: with "and" tumor cells are 1–15% of the
+  cells per patient, too few for a high-grade glioma; with "or" the podoplanin−/vimentin− branch is exactly
+  the complement. Limitation: reactive astrocytes (GFAP+ vimentin+) cannot be told apart from tumor without
+  OLIG2. The lab will be asked how they gated this step.
+- **Exhausted = all three receptors**, kept: with the current thresholds PD-1 and TIM-3 are positive in most
+  T cells, so "at least one" would call almost every T cell exhausted. `06_exhaustion_sensitivity.tsv`
+  gives all / ≥ 2 / ≥ 1 per patient; the rule is to be reviewed against the lab's per-cell export.
+  Proposed by the owner, not implemented: thresholds for PD-1, TIM-3 and LAG-3 fitted on T cells only.

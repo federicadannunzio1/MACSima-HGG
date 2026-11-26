@@ -90,7 +90,7 @@ flowchart LR
   root -->|"rest"| nonimmune
   nonimmune -->|"CD31+ CD34+"| Endothelial
   nonimmune -->|"rest"| CD31neg_CD34neg
-  CD31neg_CD34neg -->|"Podoplanin+ Vimentin+"| PodVim
+  CD31neg_CD34neg -->|"(Podoplanin+ or Vimentin+)"| PodVim
   PodVim -->|"(GFAP+ or BCAN+)"| Tumor
   PodVim -->|"GFAP- BCAN-"| PodVim_GFAPneg
   PodVim_GFAPneg -->|"CD105+"| Mesenchymal
@@ -127,11 +127,12 @@ Same rows as `06_gating_deviations.tsv` (step 06). Implementation = gates from t
 | Monocyte | CD14+ -> Iba1-/CD68- -> monocytes | CD45+ > CD20- > CD3- CD56- > CD15- > CD14+ > CD68- | Iba1 not in the shared panel: CD68- only; CD15- because neutrophils are taken first |
 | nonimmune | CD45- -> non-immune cells | rest | All cells not taken by `immune`: CD45- and CD45-flagged cells (if CD45 is flagged in > 30% of all cells, immune = CD3+ or CD68+ or CD56+, see immune_fallback) |
 | Unclassified_nonimmune | CD31-/CD34- | rest > rest | All the other CD45- cells, also CD31+ CD34- and CD31- CD34+ (the lab's counts partition every gateway: their leaves add up to the parent). CD45- cells in no leaf are Unclassified_nonimmune |
-| Tumor | podoplanin+/vimentin+ -> GFAP+/OLIG2+ -> tumor cells | rest > rest > Podoplanin+ Vimentin+ > (GFAP+ or BCAN+) | OLIG2 not in the panel: GFAP+ OR BCAN+ (owner, 25/11); BCAN (brevican) is brain-specific |
-| PodVim_GFAPneg | podoplanin+/vimentin+ -> GFAP-/OLIG2- -> CD105 | rest > rest > Podoplanin+ Vimentin+ > GFAP- BCAN- | OLIG2 not in the panel: GFAP- and BCAN- (complement of the tumor gate) |
-| Fibroblast | CD105- -> fibroblasts; CD105- -> Iba1+/CD68+ -> tumor microglia | rest > rest > Podoplanin+ Vimentin+ > GFAP- BCAN- > CD105- | CD105- cells are fibroblasts unless tumor microglia (child node) |
-| Tumor_microglia | CD105- -> Iba1+/CD68+ -> tumor microglia | rest > rest > Podoplanin+ Vimentin+ > GFAP- BCAN- > CD105- > CD68+ | Iba1 not in the shared panel: CD68+ only (as for macrophages) |
-| PodVim_neg | podoplanin-/vimentin- | rest > rest > rest | All the other CD45- CD31-/CD34- cells, also podoplanin+ vimentin- and podoplanin- vimentin+ (partition, as the lab's counts) |
+| PodVim | podoplanin+/vimentin+ | rest > rest > (Podoplanin+ or Vimentin+) | Podoplanin+ OR vimentin+ (owner, 26/11; decision 0006): with AND tumor cells were 1-15% of the cells per patient; the podoplanin-/vimentin- branch is then exactly the complement. Reactive astrocytes (GFAP+ vimentin+) cannot be told apart from tumor without OLIG2 |
+| Tumor | podoplanin+/vimentin+ -> GFAP+/OLIG2+ -> tumor cells | rest > rest > (Podoplanin+ or Vimentin+) > (GFAP+ or BCAN+) | OLIG2 not in the panel: GFAP+ OR BCAN+ (owner, 25/11); BCAN (brevican) is brain-specific |
+| PodVim_GFAPneg | podoplanin+/vimentin+ -> GFAP-/OLIG2- -> CD105 | rest > rest > (Podoplanin+ or Vimentin+) > GFAP- BCAN- | OLIG2 not in the panel: GFAP- and BCAN- (complement of the tumor gate) |
+| Fibroblast | CD105- -> fibroblasts; CD105- -> Iba1+/CD68+ -> tumor microglia | rest > rest > (Podoplanin+ or Vimentin+) > GFAP- BCAN- > CD105- | CD105- cells are fibroblasts unless tumor microglia (child node) |
+| Tumor_microglia | CD105- -> Iba1+/CD68+ -> tumor microglia | rest > rest > (Podoplanin+ or Vimentin+) > GFAP- BCAN- > CD105- > CD68+ | Iba1 not in the shared panel: CD68+ only (as for macrophages) |
+| PodVim_neg | podoplanin-/vimentin- | rest > rest > rest | All the other CD45- CD31-/CD34- cells: podoplanin- and vimentin- (complement of the OR gate above), and cells with both markers QC-flagged |
 | Astrocyte | podoplanin-/vimentin- -> GFAP+/OLIG2- -> astrocytes | rest > rest > rest > GFAP+ | OLIG2 not in the panel: GFAP+ only (OLIG2- not checked: may include GFAP+ OLIG2+ tumor cells). GFAP- cells here (oligodendrocytes or other) are Unclassified_nonimmune |
 | thresholds | not specified (the lab gates by hand in its software) | automatic: two-component GMM per patient (P85 fallback) or negative population per ROI (`thresholds`) | Not yet validated against the lab's populations (F4a, F14) |
 | QC flags | not specified | a QC-flagged marker counts as negative in the tree and is NA in the T annotations | Marker not measurable in that ROI (constants.R QC_FLAGS) |
