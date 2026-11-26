@@ -238,6 +238,31 @@ n_prol <- sum(mfi_df$T_proliferating, na.rm = TRUE)
 message(sprintf("  T cells: %d total, %d activated (HLA-DR+), %d proliferating (Ki-67+)",
                 n_T, n_act, n_prol))
 
+# ── 4c. EXHAUSTION RULE: SENSITIVITY TABLE ───────────────────────────────────
+# The tree calls a T cell exhausted when all the receptors of the exhausted node are positive
+# (diagram, decision 0006; kept by the owner on 26/11 until the thresholds are validated).
+# Same cells, % with all / >= 2 / >= 1 of them, per patient (NA = flagged = negative, as the tree).
+gn <- gating_nodes(GATING)
+exh_sets <- list(T_CD8 = c("T_CD8", "T_CD8_exhausted"), T_CD4_FoxP3neg = c("T_CD4_nonreg", "T_CD4_exhausted"))
+exh_tab <- do.call(rbind, lapply(names(exh_sets), function(pop) {
+  ids  <- exh_sets[[pop]]
+  rec  <- strsplit(gn$markers[gn$id == ids[2]], ",")[[1]]
+  sel  <- mfi_df$celltype_gating %in% gating_labels_under(GATING, ids[1])
+  k    <- Reduce(`+`, lapply(rec, function(m) !is.na(positivity[[m]][sel]) & positivity[[m]][sel]))
+  pid  <- mfi_df$patient_id[sel]
+  one  <- function(kk) data.frame(n_cells = length(kk), pct_all = 100 * mean(kk == length(rec)),
+                                  pct_ge2 = 100 * mean(kk >= 2), pct_ge1 = 100 * mean(kk >= 1))
+  out  <- rbind(do.call(rbind, lapply(split(k, pid), one)), all_patients = one(k))
+  data.frame(population = pop, receptors = paste(rec, collapse = ","),
+             patient_id = rownames(out), out, row.names = NULL)
+}))
+exh_tab[c("pct_all", "pct_ge2", "pct_ge1")] <- round(exh_tab[c("pct_all", "pct_ge2", "pct_ge1")], 1)
+write_tsv(exh_tab, file.path(TAB_DIR, "06_exhaustion_sensitivity.tsv"))
+message("  Exhausted (all receptors / >= 2 / >= 1), all patients:")
+for (i in which(exh_tab$patient_id == "all_patients"))
+  message(sprintf("    %s: %.1f / %.1f / %.1f %% of %d cells", exh_tab$population[i],
+                  exh_tab$pct_all[i], exh_tab$pct_ge2[i], exh_tab$pct_ge1[i], exh_tab$n_cells[i]))
+
 # ── 5. SUMMARY ────────────────────────────────────────────────────────────────
 ct_table <- table(mfi_df$celltype_gating)
 ct_df    <- as.data.frame(ct_table) %>%

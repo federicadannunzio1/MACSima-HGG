@@ -31,6 +31,10 @@ GFAP without podoplanin/vimentin is not tumor	GFAP,BCAN	Astrocyte
 mesenchymal	Podoplanin,Vimentin,CD105	Mesenchymal
 fibroblast	Podoplanin,Vimentin	Fibroblast
 tumor microglia	Podoplanin,Vimentin,CD68	Tumor_microglia
-vimentin only: podoplanin-/vimentin- branch	Vimentin,GFAP	Astrocyte
+vimentin only is enough (OR)	Vimentin,GFAP	Tumor
+podoplanin only is enough (OR)	Podoplanin,BCAN	Tumor
+vimentin only, GFAP- BCAN-, CD105+	Vimentin,CD105	Mesenchymal
+neither podoplanin nor vimentin, GFAP+	GFAP	Astrocyte
+neither podoplanin nor vimentin, GFAP-	CD105	Unclassified_nonimmune
 BCAN only	BCAN	Unclassified_nonimmune
 nothing positive		Unclassified_nonimmune
