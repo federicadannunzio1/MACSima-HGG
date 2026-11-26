@@ -42,7 +42,15 @@ mfi_df$cell_id        <- rownames(mfi_df)
 mfi_df$patient_id     <- seurat_obj$patient_id
 mfi_df$sample_id      <- seurat_obj$sample_id
 mfi_df$celltype_gating <- seurat_obj$celltype_gating
-mfi_df$celltype        <- seurat_obj$celltype  # annotazione manuale da clustering
+# Manual annotation (celltype) comes from step 05b: step 06 starts from the 05 object, which does not have it.
+# Cells are matched by ID; stop if 05b was not run or does not cover the same cells.
+if (!file.exists(rds_path("seurat_annotated")))
+  stop("07b needs the manual annotation of step 05b: run code/05b_annotation.R first")
+annot_ct <- readRDS(rds_path("seurat_annotated"))$celltype   # named by cell ID
+if (!all(colnames(seurat_obj) %in% names(annot_ct)))
+  stop("05b_seurat_annotated.rds does not contain all the cells of 06_seurat_gated.rds: re-run 05b on the same 05 object")
+mfi_df$celltype <- annot_ct[colnames(seurat_obj)]   # annotazione manuale da clustering
+rm(annot_ct)
 
 markers_available <- colnames(mfi_norm)
 message(sprintf("Marker disponibili: %d", length(markers_available)))
