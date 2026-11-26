@@ -75,7 +75,7 @@ p_cof <- cof_df %>% head(30) %>%
   labs(x = NULL, y = "Arcsinh cofactor (P50 median)", title = "Top 30 markers by cofactor") +
   theme_hgg()
 
-key_markers <- c("CD3", "CD45", "GFAP", "CD68", "CD274", "H3.3K27M")
+key_markers <- c("CD3", "CD45", "GFAP", "CD68", "CD274", "H3-3K27M")  # Seurat name ("_" -> "-")
 key_markers <- intersect(key_markers, markers)
 
 plot_before_after <- function(marker) {
