@@ -1,0 +1,4 @@
+patient_id	os_months	pfs_months	mgmt_status	histology	cohort
+P01	20.0	10.0	methyliert	example_histology_A	example_cohort
+P02	9.0	4.0	nicht_methyliert	example_histology_B	example_cohort
+P03	12.0	7.0	unknown	example_histology_A	example_cohort
